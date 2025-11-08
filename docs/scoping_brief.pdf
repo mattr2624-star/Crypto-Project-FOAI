@@ -1,0 +1,124 @@
+# Scoping Brief: Crypto Volatility Detection
+
+**Author:** Melissa Wong
+**Date:** November 8, 2025  
+**Course:** Operationalize AI
+
+---
+
+## 1. Use Case
+
+### Business Context
+Cryptocurrency markets are highly volatile with rapid price movements that create both opportunities and risks for traders. The ability to detect volatility spikes in real-time (within 60 seconds) enables:
+- Risk management through early warning systems
+- Algorithmic trading strategy triggers
+- Market surveillance and monitoring
+
+### Target Users
+- Cryptocurrency traders (retail and institutional)
+- Risk management teams
+- Market makers and liquidity providers
+
+---
+
+## 2. Problem Statement
+
+**Objective:** Predict short-term volatility spikes in cryptocurrency prices 60 seconds ahead of occurrence.
+
+**Definition of Volatility Spike:** A significant increase in price variance over the next 60-second window compared to recent historical patterns.
+
+**Input:** Real-time ticker data from Coinbase (BTC-USD, ETH-USD)
+- Price (best bid, best ask, last trade)
+- Volume
+- 24-hour high/low
+
+**Output:** Binary classification (0 = normal volatility, 1 = spike detected)
+
+---
+
+## 3. Success Metrics
+
+### Primary Metric
+**Precision-Recall AUC (PR-AUC):** Due to class imbalance (volatility spikes are rare events), we prioritize PR-AUC over ROC-AUC.
+
+**Target:** PR-AUC ≥ 0.70
+
+### Secondary Metrics
+- **Precision @ 0.5 threshold:** Minimize false alarms
+- **Recall @ 0.5 threshold:** Capture majority of true spikes
+- **Latency:** Inference must complete in < 2x real-time (< 120 seconds for 60-second windows)
+
+### Business Impact
+- Reduce unexpected losses from volatile price movements
+- Enable proactive position adjustment
+- Improve overall risk-adjusted returns
+
+---
+
+## 4. Prediction Horizon & Labeling Strategy
+
+**Prediction Horizon:** 60 seconds (1 minute)
+
+**Label Generation:**
+1. Calculate rolling standard deviation of midprice returns over next 60 seconds
+2. Set threshold τ at 90th percentile of historical volatility distribution
+3. Label = 1 if σ_future ≥ τ, else 0
+
+**Justification:** 60 seconds provides actionable lead time while maintaining sufficient signal-to-noise ratio.
+
+---
+
+## 5. Risk Assumptions & Constraints
+
+### Technical Risks
+- **WebSocket disconnections:** Implement auto-reconnect with exponential backoff
+- **Data latency:** Coinbase API delays could impact prediction accuracy
+- **Feature drift:** Market regimes change; model requires regular retraining
+
+### Data Assumptions
+- Tick data frequency: ~1-10 updates per second (varies by trading activity)
+- Feature window: Use 5-minute rolling windows for feature calculation
+- Train/validation/test split: Time-based (70/15/15) to prevent data leakage
+
+### Operational Constraints
+- No trading execution (analysis only)
+- Public market data only
+- Real-time processing requirement: Features must be computable in streaming fashion
+
+---
+
+## 6. Model Development Plan
+
+### Baseline Model
+Z-score based rule: Trigger alert when recent volatility exceeds 2 standard deviations
+
+### ML Models (at least one)
+- Logistic Regression with engineered features
+- XGBoost classifier (optional)
+
+### Feature Engineering
+- Rolling statistics: mean, std, min, max of returns
+- Bid-ask spread dynamics
+- Trade intensity (volume-weighted)
+- Optional: Order book imbalance if data available
+
+---
+
+## 7. Evaluation Strategy
+
+### Cross-Validation
+Time-series split with walk-forward validation
+
+### Test Set
+Final 15% of data (held out), representing most recent market conditions
+
+### Monitoring
+- Evidently reports for data drift detection
+- Performance metrics logged to MLflow
+- Regular retraining cadence (weekly recommended)
+
+---
+
+## Summary
+
+This project builds a real-time volatility detection system for cryptocurrency markets using streaming data from Coinbase. Success will be measured primarily by PR-AUC ≥ 0.70, with operational requirements for low latency (<2x real-time) and robust handling of data quality issues.

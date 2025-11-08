@@ -1,0 +1,29 @@
+cat > .gitignore << 'EOF'
+# Environment
+.env
+.venv/
+venv/
+
+# Data
+data/raw/*.ndjson
+data/processed/*.parquet
+
+# MLflow
+mlruns/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+EOF

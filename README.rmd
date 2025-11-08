@@ -1,0 +1,157 @@
+# Crypto Volatility Detection - Milestone 1
+
+Real-time cryptocurrency volatility detection pipeline using Coinbase WebSocket API, Kafka, and MLflow.
+
+## Project Structure
+
+```
+.
+├── docker/
+│   ├── docker-compose.yaml       # Kafka, Zookeeper, MLflow setup
+│   ├── Dockerfile.ingestor       # Containerized ingestion service
+│   └── .env.example              # Environment variables template
+├── scripts/
+│   ├── ws_ingest.py              # WebSocket data ingestion
+│   └── kafka_consume_check.py    # Kafka validation script
+├── data/
+│   └── raw/                      # Raw ticker data (NDJSON)
+├── docs/
+│   └── scoping_brief.pdf         # Problem definition
+├── config.yaml                   # Configuration
+├── .env                          # Environment variables (not committed)
+├── requirements.txt              # Python dependencies
+└── README.md                     # This file
+```
+
+## Quick Start
+
+### 1. Start Infrastructure
+
+```bash
+cd docker
+docker compose up -d
+```
+
+Verify services are running:
+```bash
+docker compose ps
+```
+
+You should see:
+- `kafka` on port 9092
+- `zookeeper` on port 2182
+- `mlflow` on port 5001
+
+### 2. Create Kafka Topics
+
+```bash
+docker exec -it kafka kafka-topics --create \
+  --topic ticks.raw \
+  --bootstrap-server localhost:9092 \
+  --partitions 3 \
+  --replication-factor 1
+
+docker exec -it kafka kafka-topics --create \
+  --topic ticks.features \
+  --bootstrap-server localhost:9092 \
+  --partitions 3 \
+  --replication-factor 1
+```
+
+### 3. Run Data Ingestion
+
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run ingestion for 15 minutes
+python scripts/ws_ingest.py --pair BTC-USD --minutes 15 --save-disk
+```
+
+### 4. Verify Data Flow
+
+In another terminal:
+```bash
+python scripts/kafka_consume_check.py --topic ticks.raw --min 100
+```
+
+### 5. Build and Run Docker Container
+
+```bash
+# Build the ingestor image
+docker build -f docker/Dockerfile.ingestor -t crypto-ingestor .
+
+# Run the container (connected to Kafka network)
+docker run --rm --network docker_crypto-network \
+  -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 \
+  crypto-ingestor
+```
+
+## Services
+
+### MLflow UI
+Access at: http://localhost:5001
+
+### Kafka
+- Bootstrap server: `localhost:9092`
+- Topics:
+  - `ticks.raw` - Raw ticker data
+  - `ticks.features` - Processed features
+
+## Data Format
+
+Raw ticker messages include:
+- `timestamp` - Message capture time
+- `product_id` - Trading pair (e.g., BTC-USD)
+- `price` - Current price
+- `volume_24h` - 24-hour volume
+- `low_24h` / `high_24h` - 24-hour price range
+- `best_bid` / `best_ask` - Current order book top
+- `raw` - Complete Coinbase message
+
+Example:
+```json
+{
+  "timestamp": "2025-11-08T15:12:31.463496",
+  "product_id": "BTC-USD",
+  "price": "102020.48",
+  "volume_24h": "5410.75570938",
+  "best_bid": "102020.47",
+  "best_ask": "102020.48"
+}
+```
+
+## Troubleshooting
+
+### Kafka won't start
+```bash
+# Clean up and restart
+docker compose down -v
+docker compose up -d
+```
+
+### No messages in Kafka
+- Verify WebSocket connection in logs
+- Check Kafka topics exist: `docker exec kafka kafka-topics --list --bootstrap-server localhost:9092`
+- Test producer manually
+
+### Port conflicts
+- Port 5001 (MLflow): Change in docker-compose.yaml
+- Port 9092 (Kafka): Change KAFKA_BOOTSTRAP_SERVERS
+- Port 2182 (Zookeeper): Already non-standard to avoid conflicts
+
+## Next Steps (Milestone 2)
+
+- Build feature engineering pipeline (`features/featurizer.py`)
+- Implement replay script for reproducibility
+- Conduct EDA and set volatility threshold
+- Generate Evidently data quality report
+
+## Author
+
+[Your Name]  
+Course: Operationalize AI  
+Date: November 8, 2025
