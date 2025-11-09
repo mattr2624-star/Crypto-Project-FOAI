@@ -1,28 +1,24 @@
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
+# Install Debian build deps needed to build some Python wheels (psutil, cryptography, etc.)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential \
+      python3-dev \
+      gcc \
+      libffi-dev \
+      libssl-dev \
+      pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY scripts/ ./scripts/
-COPY .env .env
+COPY . .
 
-# Create data directory
-RUN mkdir -p data/raw
-
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-
-# Default command
-CMD ["python", "scripts/ws_ingest.py", "--pair", "BTC-USD"]
+CMD ["python", "scripts/ws_ingest.py"]

@@ -25,7 +25,7 @@ Cryptocurrency markets are highly volatile with rapid price movements that creat
 
 **Objective:** Predict short-term volatility spikes in cryptocurrency prices 60 seconds ahead of occurrence.
 
-**Definition of Volatility Spike:** A significant increase in price variance over the next 60-second window compared to recent historical patterns.
+**Definition of Volatility Spike:** A price movement exceeding X% (e.g., 0.5-1.0%) within a 60-second window, OR a standard deviation spike above the 90th percentile of recent volatility distribution.
 
 **Input:** Real-time ticker data from Coinbase (BTC-USD, ETH-USD)
 - Price (best bid, best ask, last trade)
@@ -77,7 +77,8 @@ Cryptocurrency markets are highly volatile with rapid price movements that creat
 
 ### Data Assumptions
 - Tick data frequency: ~1-10 updates per second (varies by trading activity)
-- Feature window: Use 5-minute rolling windows for feature calculation
+- Feature window: Use 5-10 minute rolling windows for historical context
+- Prediction window: 60 seconds forward-looking
 - Train/validation/test split: Time-based (70/15/15) to prevent data leakage
 
 ### Operational Constraints
