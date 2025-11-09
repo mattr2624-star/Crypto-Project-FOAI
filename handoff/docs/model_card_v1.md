@@ -17,11 +17,9 @@ This model predicts short-term volatility spikes in cryptocurrency markets (spec
 **Training Date:** November 9, 2025
 
 ### Model Architecture
-- **Input Features:** 15 engineered features from real-time tick data
+- **Input Features:** 10 engineered features from real-time tick data
   - **Log Return Volatility:** `log_return_std_30s`, `log_return_std_60s`, `log_return_std_300s`
-  - **Simple Return Volatility:** `return_std_60s`, `return_std_30s`, `return_std_300s`
   - **Return Statistics:** `return_mean_60s`, `return_mean_300s`, `return_min_30s`
-  - **Log Return Means:** `log_return_mean_30s`, `log_return_mean_60s`
   - **Spread Volatility:** `spread_std_300s`, `spread_mean_60s`
   - **Trade Intensity:** `tick_count_60s`
   - **Derived:** `return_range_60s` (return_max - return_min)
@@ -97,15 +95,15 @@ Real-time detection of cryptocurrency volatility spikes to enable:
 ### Metrics
 
 **Primary Metric: PR-AUC (Precision-Recall Area Under Curve)**
-- **Validation:** 0.1204
-- **Test:** 0.2298
+- **Validation:** 0.1221
+- **Test:** 0.2449
 
 **Secondary Metrics (Test Set):**
 | Metric | Value | Interpretation |
 |--------|-------|----------------|
-| Precision | 0.1724 | Of predicted spikes, 17.24% are true spikes |
-| Recall | 0.6297 | Of true spikes, 62.97% are detected |
-| F1-Score | 0.2707 | Harmonic mean of precision and recall |
+| Precision | 0.1773 | Of predicted spikes, 17.73% are true spikes |
+| Recall | 0.6218 | Of true spikes, 62.18% are detected |
+| F1-Score | 0.2759 | Harmonic mean of precision and recall |
 | ROC-AUC | [See MLflow] | Overall discrimination ability |
 | Accuracy | [See MLflow] | Overall correct predictions |
 
@@ -122,15 +120,15 @@ Actual Positive        [FN]                [TP]
 | Model | PR-AUC (Test) | F1-Score | Precision | Recall |
 |-------|--------|----------|-----------|--------|
 | Baseline (Z-Score) | 0.3149 | 0.0000 | 0.0000 | 0.0000 |
-| Logistic Regression | 0.2298 | 0.2707 | 0.1724 | 0.6297 |
-| XGBoost | 0.2435 | 0.2777 | 0.4255 | 0.2057 |
+| Logistic Regression | 0.2449 | 0.2759 | 0.1773 | 0.6218 |
+| XGBoost | 0.2323 | 0.2586 | 0.3059 | 0.2239 |
 
 **Key Findings:**
 - **Baseline:** PR-AUC 0.3149 but has 0% recall - threshold too conservative
-- **Logistic Regression:** Balanced performance with 62.97% recall and 17.24% precision, suitable for alerting systems
-- **XGBoost:** Best overall PR-AUC (0.2435) with highest precision (42.55%) but lower recall (20.57%), best for precision-focused use cases
+- **Logistic Regression:** Balanced performance with 62.18% recall and 17.73% precision, suitable for alerting systems. Improved performance (+6.6% PR-AUC) after feature reduction to minimize multicollinearity.
+- **XGBoost:** PR-AUC 0.2323 with high precision (30.59%) but lower recall (22.39%), best for precision-focused use cases
 
-**Feature Set:** All models trained with expanded feature set including log returns (log_return_std_30s/60s/300s) and spread volatility (spread_std_300s, spread_mean_60s), totaling 15 features.
+**Feature Set:** All models trained with reduced feature set (10 features) to minimize multicollinearity. Features include log return volatility (log_return_std_30s/60s/300s), return statistics (return_mean_60s/300s, return_min_30s), spread volatility (spread_std_300s, spread_mean_60s), trade intensity (tick_count_60s), and derived feature (return_range_60s). Removed perfectly correlated features (return_std_* and log_return_mean_*) to improve Logistic Regression performance.
 
 ### Performance Requirements
 - **Latency:** Inference must complete in < 120 seconds (2x real-time for 60-second windows)
@@ -257,11 +255,11 @@ xgboost: 2.0.0 (if applicable)
 ## Changelog
 
 ### v1.0 (November 9, 2025)
-- Initial model release with expanded feature set
+- Initial model release with reduced feature set (10 features) to minimize multicollinearity
 - Baseline: Z-score rule-based detector (PR-AUC: 0.3149)
-- Logistic Regression: PR-AUC 0.2298, Precision 17.24%, Recall 62.97%
-- XGBoost: PR-AUC 0.2435 (BEST), Precision 42.55%, Recall 20.57%
-- Features: 15 engineered features including log returns (log_return_std_30s/60s/300s) and spread volatility (spread_std_300s, spread_mean_60s)
+- Logistic Regression: PR-AUC 0.2449, Precision 17.73%, Recall 62.18% (+6.6% improvement after feature reduction)
+- XGBoost: PR-AUC 0.2323, Precision 30.59%, Recall 22.39%
+- Features: 10 engineered features including log return volatility (log_return_std_30s/60s/300s), return statistics, spread volatility, and trade intensity. Removed perfectly correlated features (return_std_* and log_return_mean_*).
 - Evaluation: Time-based train/val/test split (70/15/15)
 
 ---
@@ -270,9 +268,8 @@ xgboost: 2.0.0 (if applicable)
 
 **Maintainer:** Melissa Wong  
 **Course:** Operationalize AI  
-**Institution:** [Your Institution]
+**Institution:** CMU
 
-For questions or issues, contact: [your-email@example.com]
 
 ---
 

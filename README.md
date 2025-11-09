@@ -289,10 +289,10 @@ nano docs/genai_appendix.md
 | Model | PR-AUC | F1-Score | Precision | Recall | Inference Time |
 |-------|--------|----------|-----------|--------|----------------|
 | Baseline (Z-Score) | 0.3149 | 0.0000 | 0.0000 | 0.0000 | < 1ms |
-| Logistic Regression | 0.2298 | 0.2707 | 0.1724 | 0.6297 | < 1ms |
-| XGBoost | 0.2435 | 0.2777 | 0.4255 | 0.2057 | < 1ms |
+| Logistic Regression | 0.2449 | 0.2759 | 0.1773 | 0.6218 | < 1ms |
+| XGBoost | 0.2323 | 0.2586 | 0.3059 | 0.2239 | < 1ms |
 
-*Note: All models trained with feature set including log returns and spread volatility (15 features total). Baseline achieves PR-AUC 0.3149 but has 0% recall (threshold too conservative). Logistic Regression detects 62.97% of spikes with 17.24% precision. XGBoost achieves best PR-AUC (0.2435) with highest precision (42.55%) but lower recall (20.57%).*
+*Note: All models trained with reduced feature set (10 features) to minimize multicollinearity. Features include log return volatility, return statistics, spread volatility, and trade intensity. Removed perfectly correlated features (return_std_* and log_return_mean_*) which improved Logistic Regression PR-AUC by +6.6% (0.2298 → 0.2449). Baseline achieves PR-AUC 0.3149 but has 0% recall (threshold too conservative). Logistic Regression detects 62.18% of spikes with 17.73% precision. XGBoost achieves PR-AUC 0.2323 with high precision (30.59%) but lower recall (22.39%).*
 
 ### Requirements Met
 
@@ -423,14 +423,6 @@ This project demonstrates:
 4. **Model Evaluation:** PR-AUC for imbalanced data, confusion matrices, performance benchmarking
 5. **Production Readiness:** Inference latency validation, data drift monitoring
 6. **Documentation:** Model cards, scoping briefs, transparent AI usage
-
----
-
-## 📅 Project Timeline
-
-**Milestone 1:** ✅ Complete (November 8, 2025) - Infrastructure & data collection  
-**Milestone 2:** ✅ Complete (November 2025) - Feature engineering & analysis  
-**Milestone 3:** ✅ Complete (November 2025) - Model training & evaluation  
 
 ---
 

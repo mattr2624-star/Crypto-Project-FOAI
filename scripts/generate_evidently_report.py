@@ -107,11 +107,9 @@ def select_features_for_drift(df: pd.DataFrame) -> list:
     Select features for drift analysis using the same logic as train.py/infer.py.
     This ensures we analyze the same features that are actually used in the model.
     
-    Uses improved feature set:
-    - High separation: return_std_60s, return_std_30s, return_min_30s, return_range_60s
-    - Good existing: return_mean_60s, return_mean_300s, return_std_300s
-    - Trade intensity: tick_count_60s
-    - Removed: spread, spread_bps (poor separation)
+    Uses reduced feature set (10 features) to minimize multicollinearity:
+    - Removed perfectly correlated duplicates (r=1.0)
+    - Keeps diverse time windows and feature types
     
     Args:
         df: DataFrame with features
@@ -119,34 +117,24 @@ def select_features_for_drift(df: pd.DataFrame) -> list:
     Returns:
         List of column names to analyze
     """
-    # Priority features (same as train.py)
-    # Updated with log returns and spread volatility
+    # Reduced feature set (same as train.py) - removes perfect correlations
     priority_features = [
-        # High separation volatility features (log returns recommended for crypto)
-        'log_return_std_30s',  # 30-second log return volatility (best: 0.577)
-        'log_return_std_60s',  # 60-second log return volatility (excellent: 0.569)
-        'log_return_std_300s', # 300-second log return volatility (very good: 0.502)
-        
-        # Keep simple returns for backward compatibility
-        'return_std_60s',      # 60-second volatility (good: 0.78)
-        'return_std_30s',      # 30-second volatility (excellent: 0.66)
-        'return_std_300s',     # 300-second volatility (keep for longer-term)
+        # Volatility features (log returns - more stable for crypto)
+        'log_return_std_30s',  # 30-second log return volatility
+        'log_return_std_60s',  # 60-second log return volatility (best separation: 0.569)
+        'log_return_std_300s', # 300-second log return volatility
         
         # Return statistics
-        'return_mean_60s',     # 1-minute return mean (good: 0.74)
-        'return_mean_300s',    # 5-minute return mean (moderate: 0.51)
-        'return_min_30s',      # Minimum return in 30s (good: 0.64)
+        'return_mean_60s',     # 1-minute return mean
+        'return_mean_300s',    # 5-minute return mean
+        'return_min_30s',      # Minimum return in 30s (downside risk)
         
-        # Log return means (moderate separation)
-        'log_return_mean_30s', # 30-second log return mean (moderate: 0.252)
-        'log_return_mean_60s', # 60-second log return mean (moderate: 0.188)
-        
-        # Spread volatility (moderate separation)
-        'spread_std_300s',     # 300-second spread volatility (moderate: 0.240)
-        'spread_mean_60s',     # 60-second spread mean (moderate: 0.172)
+        # Spread volatility
+        'spread_std_300s',     # 300-second spread volatility
+        'spread_mean_60s',     # 60-second spread mean
         
         # Trade intensity
-        'tick_count_60s',      # Trading intensity (moderate: 0.21)
+        'tick_count_60s',      # Trading intensity
     ]
     
     # Select available features

@@ -33,7 +33,7 @@ class BaselineVolatilityDetector:
     def _get_volatility_column(self, X: pd.DataFrame) -> str:
         """
         Find the volatility column name, supporting multiple naming conventions.
-        Prefers return_std_60s (best separation) over return_std_300s.
+        Prefers log_return_std_60s (best separation) over others.
         
         Args:
             X: Features dataframe
@@ -41,13 +41,14 @@ class BaselineVolatilityDetector:
         Returns:
             Column name for volatility feature
         """
-        # Try best separation features first, then fallback
-        for col_name in ['return_std_60s', 'return_std_30s', 'price_volatility_5min', 'return_std_300s']:
+        # Try best separation features first (log returns), then fallback
+        for col_name in ['log_return_std_60s', 'log_return_std_30s', 'log_return_std_300s',
+                         'return_std_60s', 'return_std_30s', 'price_volatility_5min', 'return_std_300s']:
             if col_name in X.columns:
                 return col_name
         
         raise ValueError(
-            "X must contain a volatility column (return_std_60s, return_std_30s, return_std_300s, or price_volatility_5min). "
+            "X must contain a volatility column (log_return_std_60s, log_return_std_30s, log_return_std_300s, return_std_60s, return_std_30s, return_std_300s, or price_volatility_5min). "
             f"Available columns: {X.columns.tolist()}"
         )
         

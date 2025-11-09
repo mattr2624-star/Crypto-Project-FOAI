@@ -106,22 +106,28 @@ Features are computed over rolling windows: **30s, 60s (1min), and 300s (5min)**
 | `time_since_last_trade` | `t_current - t_previous` (seconds) | N/A | Difference | 0.0 |
 | `gap_seconds` | Time gap between consecutive ticks | N/A | Difference | 0.0 |
 
-#### Features Used in Model (8 features)
+#### Features Used in Model (10 features)
 
-The current model uses a subset of features selected based on feature separation analysis:
+The current model uses a reduced feature set to minimize multicollinearity. Features were selected based on separation analysis and correlation reduction:
 
 | Feature Name | Description | Window | Rationale |
 |--------------|-------------|--------|-----------|
-| `return_std_60s` | 60-second volatility | 60s | Best separation (0.78 std dev) |
-| `return_std_30s` | 30-second volatility | 30s | Excellent separation (0.66 std dev) |
-| `return_std_300s` | 300-second volatility | 300s | Longer-term context |
+| `log_return_std_30s` | 30-second log return volatility | 30s | More stable for crypto, excellent separation |
+| `log_return_std_60s` | 60-second log return volatility | 60s | Best separation (0.569 std dev), more stable than simple returns |
+| `log_return_std_300s` | 300-second log return volatility | 300s | Longer-term context, more stable than simple returns |
 | `return_mean_60s` | 1-minute return mean | 60s | Good separation (0.74 std dev) |
 | `return_mean_300s` | 5-minute return mean | 300s | Moderate separation (0.51 std dev) |
-| `return_min_30s` | Minimum return in 30s | 30s | Good separation (0.64 std dev) |
+| `return_min_30s` | Minimum return in 30s | 30s | Good separation (0.64 std dev), downside risk indicator |
+| `spread_std_300s` | 300-second spread volatility | 300s | Market microstructure indicator |
+| `spread_mean_60s` | 60-second spread mean | 60s | Market liquidity indicator |
 | `tick_count_60s` | Trading intensity | 60s | Moderate separation (0.21 std dev) |
-| `return_range_60s` | Return range (max - min) | 60s | Derived feature |
+| `return_range_60s` | Return range (max - min) | 60s | Derived feature, volatility proxy |
 
-**Note:** Additional features are computed but not used in the current model. Log returns and spread volatility features are available for future model iterations.
+**Note:** Removed perfectly correlated features (r=1.0) to improve Logistic Regression performance:
+- Removed `return_std_30s`, `return_std_60s`, `return_std_300s` (duplicates of log_return_std_*)
+- Removed `log_return_mean_30s`, `log_return_mean_60s` (duplicates of return_mean_*)
+
+This reduction improved Logistic Regression PR-AUC by +6.6% (0.2298 → 0.2449).
 
 ### 3.3 Feature Engineering Rationale
 

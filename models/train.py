@@ -72,11 +72,12 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Extract feature columns and target variable.
     
-    Uses improved feature set based on separation analysis:
-    - High separation features: return_std_60s, return_std_30s, return_min_30s
-    - Good existing features: return_mean_60s, return_mean_300s
-    - Trade intensity: tick_count_60s
-    - Removed: spread, spread_bps (poor separation)
+    Uses reduced feature set (10 features) to minimize multicollinearity:
+    - Removed perfectly correlated duplicates (r=1.0):
+      * return_std_* (duplicates of log_return_std_*)
+      * log_return_mean_* (duplicates of return_mean_*)
+    - Keeps diverse time windows (30s, 60s, 300s) for different signals
+    - Focuses on log returns (more stable for crypto) and key statistics
     
     Args:
         df: Features dataframe
@@ -84,34 +85,24 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     Returns:
         Tuple of (X, y)
     """
-    # Priority features (ordered by importance)
-    # Updated with log returns (more stable for crypto, excellent separation)
+    # Reduced feature set (10 features) - removes perfect correlations
     priority_features = [
-        # High separation volatility features (log returns recommended for crypto)
-        'log_return_std_30s',  # 30-second log return volatility (best: 0.577)
-        'log_return_std_60s',  # 60-second log return volatility (excellent: 0.569)
-        'log_return_std_300s', # 300-second log return volatility (very good: 0.502)
-        
-        # Keep simple returns for backward compatibility and comparison
-        'return_std_60s',      # 60-second volatility (good: 0.78)
-        'return_std_30s',      # 30-second volatility (excellent: 0.66)
-        'return_std_300s',     # 300-second volatility (keep for longer-term)
+        # Volatility features (log returns - more stable for crypto)
+        'log_return_std_30s',  # 30-second log return volatility
+        'log_return_std_60s',  # 60-second log return volatility (best separation: 0.569)
+        'log_return_std_300s', # 300-second log return volatility
         
         # Return statistics
-        'return_mean_60s',     # 1-minute return mean (good: 0.74)
-        'return_mean_300s',    # 5-minute return mean (moderate: 0.51)
-        'return_min_30s',      # Minimum return in 30s (good: 0.64)
+        'return_mean_60s',     # 1-minute return mean
+        'return_mean_300s',    # 5-minute return mean
+        'return_min_30s',      # Minimum return in 30s (downside risk)
         
-        # Log return means (moderate separation)
-        'log_return_mean_30s', # 30-second log return mean (moderate: 0.252)
-        'log_return_mean_60s', # 60-second log return mean (moderate: 0.188)
-        
-        # Spread volatility (moderate separation)
-        'spread_std_300s',     # 300-second spread volatility (moderate: 0.240)
-        'spread_mean_60s',     # 60-second spread mean (moderate: 0.172)
+        # Spread volatility
+        'spread_std_300s',     # 300-second spread volatility
+        'spread_mean_60s',     # 60-second spread mean
         
         # Trade intensity
-        'tick_count_60s',      # Trading intensity (moderate: 0.21)
+        'tick_count_60s',      # Trading intensity
     ]
     
     # Select available features
@@ -224,15 +215,16 @@ def train_baseline(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.Dat
     X_test, y_test = prepare_features(test_df)
     
     # Use only volatility feature for baseline
-    # Prefer return_std_60s (best separation), then fallback to others
+    # Prefer log_return_std_60s (best separation), then fallback to others
     volatility_col = None
-    for col_name in ['return_std_60s', 'return_std_30s', 'price_volatility_5min', 'return_std_300s']:
+    for col_name in ['log_return_std_60s', 'log_return_std_30s', 'log_return_std_300s', 
+                     'return_std_60s', 'return_std_30s', 'price_volatility_5min', 'return_std_300s']:
         if col_name in X_train.columns:
             volatility_col = col_name
             break
     
     if volatility_col is None:
-        raise ValueError("No volatility column found. Expected return_std_60s, return_std_30s, return_std_300s, or price_volatility_5min")
+        raise ValueError("No volatility column found. Expected log_return_std_60s, log_return_std_30s, log_return_std_300s, return_std_60s, return_std_30s, return_std_300s, or price_volatility_5min")
     
     X_train_base = X_train[[volatility_col]]
     X_val_base = X_val[[volatility_col]]

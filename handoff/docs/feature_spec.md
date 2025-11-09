@@ -72,17 +72,28 @@ label = 0  if σ_future < τ   (normal conditions)
 
 Features are computed over rolling windows: **60s (1min) and 300s (5min)**
 
-#### Features Used in Model (5 features)
+#### Features Used in Model (10 features)
+
+The current model uses a reduced feature set to minimize multicollinearity:
 
 | Feature Name | Description | Window | Type |
 |--------------|-------------|--------|------|
+| `log_return_std_30s` | 30-second log return volatility | 30s | float |
+| `log_return_std_60s` | 60-second log return volatility | 60s | float |
+| `log_return_std_300s` | 300-second log return volatility | 300s | float |
 | `return_mean_60s` | Mean return over 60-second window | 60s | float |
 | `return_mean_300s` | Mean return over 300-second (5min) window | 300s | float |
-| `return_std_300s` | Standard deviation of returns (volatility proxy) | 300s | float |
-| `spread` | Bid-ask spread (absolute) | Current | float |
-| `spread_bps` | Bid-ask spread in basis points | Current | float |
+| `return_min_30s` | Minimum return in 30-second window | 30s | float |
+| `spread_std_300s` | 300-second spread volatility | 300s | float |
+| `spread_mean_60s` | 60-second spread mean | 60s | float |
+| `tick_count_60s` | Trading intensity (tick count) | 60s | int |
+| `return_range_60s` | Return range (max - min) | 60s | float |
 
-**Note:** Additional windowed features are computed (30s, 60s, 300s windows with return/price statistics and tick counts) but only the 5 features above are used in the final model.
+**Note:** Removed perfectly correlated features (r=1.0) to improve Logistic Regression performance:
+- Removed `return_std_30s`, `return_std_60s`, `return_std_300s` (duplicates of log_return_std_*)
+- Removed `log_return_mean_30s`, `log_return_mean_60s` (duplicates of return_mean_*)
+
+This reduction improved Logistic Regression PR-AUC by +6.6% (0.2298 → 0.2449).
 
 ### 3.3 Feature Engineering Rationale
 
