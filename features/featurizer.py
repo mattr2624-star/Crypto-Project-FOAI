@@ -11,8 +11,13 @@ from collections import deque
 from typing import Dict, Any, Optional
 import pandas as pd
 import numpy as np
-from kafka import KafkaConsumer, KafkaProducer
 from pathlib import Path
+
+# Lazy import for Kafka (only needed for FeaturePipeline, not FeatureComputer)
+def _import_kafka():
+    """Lazy import Kafka classes only when needed."""
+    from kafka import KafkaConsumer, KafkaProducer
+    return KafkaConsumer, KafkaProducer
 
 # Setup logging
 logging.basicConfig(
@@ -42,6 +47,10 @@ class FeatureComputer:
         self.ticks_buffer = deque(maxlen=max_buffer_size)
         self.prices_buffer = deque(maxlen=max_buffer_size)
         self.timestamps_buffer = deque(maxlen=max_buffer_size)
+        self.spreads_buffer = deque(maxlen=max_buffer_size)  # For spread volatility
+        
+        # Track last tick time for time-since-last-trade feature
+        self.last_tick_time = None
         
         logger.info(f"FeatureComputer initialized with windows: {window_sizes}s")
     
@@ -90,39 +99,55 @@ class FeatureComputer:
     
     def add_tick(self, tick: Dict[str, Any]):
         """Add a new tick to the buffer."""
+        # Parse timestamp first to validate ordering
+        timestamp_str = tick.get('timestamp', tick.get('time'))
+        if timestamp_str:
+            try:
+                ts = pd.to_datetime(timestamp_str, utc=True)
+            except:
+                # Fallback to current UTC time
+                ts = pd.Timestamp.now(tz='UTC')
+        else:
+            ts = pd.Timestamp.now(tz='UTC')
+        
+        # Validate timestamp ordering before adding
+        if not self._validate_timestamp_order(ts):
+            # Still add the tick but log the issue
+            logger.warning("Adding tick with out-of-order timestamp (may indicate data quality issue)")
+        
+        # Add tick to buffers
         self.ticks_buffer.append(tick)
         
-        # Extract and store price and timestamp
+        # Extract and store price
         midprice = self._get_midprice(tick)
         if midprice:
             self.prices_buffer.append(midprice)
         
-        # Parse timestamp - handle both 'time' and 'timestamp' fields
-        timestamp_str = tick.get('timestamp', tick.get('time'))
-        if timestamp_str:
-            try:
-                ts = pd.to_datetime(timestamp_str)
-                self.timestamps_buffer.append(ts)
-            except:
-                self.timestamps_buffer.append(pd.Timestamp.now())
-        else:
-            self.timestamps_buffer.append(pd.Timestamp.now())
+        # Store spread for spread volatility computation
+        spread = self._get_spread(tick)
+        if spread is not None:
+            self.spreads_buffer.append(spread)
+        
+        # Store timestamp
+        self.timestamps_buffer.append(ts)
+        self.last_tick_time = ts
     
     def _get_window_data(self, window_seconds: int) -> tuple:
         """
         Get data within the specified time window.
         
         Returns:
-            (prices_in_window, ticks_in_window)
+            (prices_in_window, ticks_in_window, spreads_in_window)
         """
         if len(self.timestamps_buffer) < 2:
-            return [], []
+            return [], [], []
         
         current_time = self.timestamps_buffer[-1]
         cutoff_time = current_time - pd.Timedelta(seconds=window_seconds)
         
         prices_in_window = []
         ticks_in_window = []
+        spreads_in_window = []
         
         for i, ts in enumerate(self.timestamps_buffer):
             if ts >= cutoff_time:
@@ -130,8 +155,57 @@ class FeatureComputer:
                     prices_in_window.append(self.prices_buffer[i])
                 if i < len(self.ticks_buffer):
                     ticks_in_window.append(self.ticks_buffer[i])
+                if i < len(self.spreads_buffer):
+                    spreads_in_window.append(self.spreads_buffer[i])
         
-        return prices_in_window, ticks_in_window
+        return prices_in_window, ticks_in_window, spreads_in_window
+    
+    def _validate_timestamp_order(self, new_timestamp: pd.Timestamp) -> bool:
+        """
+        Validate that timestamps are in chronological order.
+        
+        Args:
+            new_timestamp: New timestamp to validate
+            
+        Returns:
+            True if valid (monotonic or within tolerance), False otherwise
+        """
+        if len(self.timestamps_buffer) == 0:
+            return True
+        
+        last_timestamp = self.timestamps_buffer[-1]
+        
+        # Allow small backward jumps (e.g., due to clock drift) but log warnings
+        if new_timestamp < last_timestamp:
+            time_diff = (last_timestamp - new_timestamp).total_seconds()
+            if time_diff > 1.0:  # More than 1 second backward
+                logger.warning(f"Timestamp out of order: {new_timestamp} < {last_timestamp} (diff: {time_diff:.2f}s)")
+                return False
+        
+        return True
+    
+    def _check_data_quality(self, features: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Check for NaN, infinite values, and other data quality issues.
+        
+        Args:
+            features: Dictionary of computed features
+            
+        Returns:
+            Features dictionary with quality checks applied
+        """
+        for key, value in features.items():
+            if isinstance(value, (int, float)):
+                # Check for NaN
+                if pd.isna(value):
+                    logger.warning(f"NaN detected in feature {key}, replacing with 0.0")
+                    features[key] = 0.0
+                # Check for infinite values
+                elif not np.isfinite(value):
+                    logger.warning(f"Infinite value detected in feature {key}, replacing with 0.0")
+                    features[key] = 0.0
+        
+        return features
     
     def compute_features(self, current_tick: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -152,15 +226,22 @@ class FeatureComputer:
         
         # Compute windowed features
         for window in self.window_sizes:
-            prices, ticks = self._get_window_data(window)
+            prices, ticks, spreads = self._get_window_data(window)
             
             if len(prices) > 1:
-                # Returns
+                # Simple returns (for backward compatibility)
                 returns = np.diff(prices) / prices[:-1]
                 features[f'return_mean_{window}s'] = float(np.mean(returns))
                 features[f'return_std_{window}s'] = float(np.std(returns))
                 features[f'return_min_{window}s'] = float(np.min(returns))
                 features[f'return_max_{window}s'] = float(np.max(returns))
+                
+                # Log returns (more stable for crypto, recommended best practice)
+                # log_return = log(p_t / p_{t-1}) = log(p_t) - log(p_{t-1})
+                log_prices = np.log(prices)
+                log_returns = np.diff(log_prices)
+                features[f'log_return_mean_{window}s'] = float(np.mean(log_returns))
+                features[f'log_return_std_{window}s'] = float(np.std(log_returns))
                 
                 # Price statistics
                 features[f'price_mean_{window}s'] = float(np.mean(prices))
@@ -168,15 +249,54 @@ class FeatureComputer:
                 
                 # Trade intensity (tick count)
                 features[f'tick_count_{window}s'] = len(ticks)
+                
+                # Spread volatility (market microstructure feature)
+                if len(spreads) > 1:
+                    features[f'spread_std_{window}s'] = float(np.std(spreads))
+                    features[f'spread_mean_{window}s'] = float(np.mean(spreads))
+                else:
+                    features[f'spread_std_{window}s'] = 0.0
+                    features[f'spread_mean_{window}s'] = 0.0
             else:
                 # Not enough data for this window
-                features[f'return_mean_{window}s'] = None
-                features[f'return_std_{window}s'] = None
-                features[f'return_min_{window}s'] = None
-                features[f'return_max_{window}s'] = None
-                features[f'price_mean_{window}s'] = None
-                features[f'price_std_{window}s'] = None
+                # Set to 0 for consistency (handled downstream as missing data)
+                # This occurs for the first few ticks before sufficient history accumulates
+                features[f'return_mean_{window}s'] = 0.0
+                features[f'return_std_{window}s'] = 0.0
+                features[f'return_min_{window}s'] = 0.0
+                features[f'return_max_{window}s'] = 0.0
+                features[f'log_return_mean_{window}s'] = 0.0
+                features[f'log_return_std_{window}s'] = 0.0
+                features[f'price_mean_{window}s'] = 0.0
+                features[f'price_std_{window}s'] = 0.0
                 features[f'tick_count_{window}s'] = 0
+                features[f'spread_std_{window}s'] = 0.0
+                features[f'spread_mean_{window}s'] = 0.0
+        
+        # Time since last trade (activity feature)
+        if self.last_tick_time is not None and len(self.timestamps_buffer) > 1:
+            current_time = self.timestamps_buffer[-1]
+            prev_time = self.timestamps_buffer[-2]
+            time_since = (current_time - prev_time).total_seconds()
+            features['time_since_last_trade'] = float(time_since)
+        else:
+            features['time_since_last_trade'] = 0.0
+        
+        # Gap detection (for monitoring and potential forward-fill)
+        if len(self.timestamps_buffer) > 1:
+            current_time = self.timestamps_buffer[-1]
+            prev_time = self.timestamps_buffer[-2]
+            gap_seconds = (current_time - prev_time).total_seconds()
+            features['gap_seconds'] = float(gap_seconds)
+            
+            # Log large gaps (potential data quality issue)
+            if gap_seconds > 10.0:  # More than 10 seconds gap
+                logger.warning(f"Large gap detected: {gap_seconds:.2f}s between ticks")
+        else:
+            features['gap_seconds'] = 0.0
+        
+        # Data quality checks
+        features = self._check_data_quality(features)
         
         return features
 
@@ -202,6 +322,7 @@ class FeaturePipeline:
         
         # Initialize Kafka consumer/producer if requested (set False for unit tests)
         if create_kafka:
+            KafkaConsumer, KafkaProducer = _import_kafka()
             self.consumer = KafkaConsumer(
                 input_topic,
                 bootstrap_servers=bootstrap_servers,

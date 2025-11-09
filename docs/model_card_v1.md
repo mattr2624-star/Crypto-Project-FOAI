@@ -17,13 +17,14 @@ This model predicts short-term volatility spikes in cryptocurrency markets (spec
 **Training Date:** November 9, 2025
 
 ### Model Architecture
-- **Input Features:** 6 engineered features from real-time tick data
-  - `price_return_1min`: 1-minute price return
-  - `price_return_5min`: 5-minute price return
-  - `price_volatility_5min`: Rolling 5-minute volatility (std dev of returns)
-  - `bid_ask_spread`: Absolute bid-ask spread
-  - `bid_ask_spread_bps`: Spread in basis points
-  - `volume_24h_pct_change`: 24-hour volume percentage change
+- **Input Features:** 15 engineered features from real-time tick data
+  - **Log Return Volatility:** `log_return_std_30s`, `log_return_std_60s`, `log_return_std_300s`
+  - **Simple Return Volatility:** `return_std_60s`, `return_std_30s`, `return_std_300s`
+  - **Return Statistics:** `return_mean_60s`, `return_mean_300s`, `return_min_30s`
+  - **Log Return Means:** `log_return_mean_30s`, `log_return_mean_60s`
+  - **Spread Volatility:** `spread_std_300s`, `spread_mean_60s`
+  - **Trade Intensity:** `tick_count_60s`
+  - **Derived:** `return_range_60s` (return_max - return_min)
 
 - **Output:** Binary classification (0 = normal volatility, 1 = spike)
 
@@ -65,19 +66,19 @@ Real-time detection of cryptocurrency volatility spikes to enable:
 ### Data Source
 - **API:** Coinbase Advanced Trade WebSocket (public ticker channel)
 - **Trading Pair:** BTC-USD
-- **Collection Period:** November 8-9, 2025 (15:12 - 01:25 UTC)
-- **Total Samples:** 33,925 feature samples (after windowing and feature computation)
+- **Collection Period:** November 8-9, 2025 (15:12:31 - 01:25:17 UTC)
+- **Total Samples:** 52,524 feature samples (after windowing and feature computation)
 
 ### Data Splits (Time-Based)
-- **Training:** 70% (23,747 samples, 8.31% spike rate)
-- **Validation:** 15% (5,089 samples, 20.99% spike rate)
-- **Test:** 15% (5,089 samples, 6.92% spike rate)
+- **Training:** 70% (36,767 samples, 10.0% spike rate)
+- **Validation:** 15% (7,879 samples, 10.0% spike rate)
+- **Test:** 15% (7,878 samples, 10.0% spike rate)
 
 ### Labeling Strategy
 **Definition of Volatility Spike:**
 - Look-ahead window: 60 seconds
 - Metric: Rolling standard deviation of price returns
-- Threshold (τ): 0.000066 (90th percentile of historical distribution)
+- Threshold (τ): 0.000026 (90th percentile of historical distribution)
 - Label = 1 if future volatility ≥ τ, else 0
 
 **Class Balance:**
@@ -85,7 +86,7 @@ Real-time detection of cryptocurrency volatility spikes to enable:
 - Positive samples (spike): 10.0%
 
 ### Data Quality
-- **Missing values:** [INSERT %] (filled with 0)
+- **Missing values:** 0.01% (filled with 0)
 - **Outliers:** Handled through feature normalization
 - **Data drift:** Monitored using Evidently reports
 
@@ -96,15 +97,15 @@ Real-time detection of cryptocurrency volatility spikes to enable:
 ### Metrics
 
 **Primary Metric: PR-AUC (Precision-Recall Area Under Curve)**
-- **Validation:** 0.2013
-- **Test:** 0.0699
+- **Validation:** 0.1204
+- **Test:** 0.2298
 
 **Secondary Metrics (Test Set):**
 | Metric | Value | Interpretation |
 |--------|-------|----------------|
-| Precision | 0.0666 | Of predicted spikes, 6.66% are true spikes |
-| Recall | 0.8977 | Of true spikes, 89.77% are detected |
-| F1-Score | 0.1239 | Harmonic mean of precision and recall |
+| Precision | 0.1724 | Of predicted spikes, 17.24% are true spikes |
+| Recall | 0.6297 | Of true spikes, 62.97% are detected |
+| F1-Score | 0.2707 | Harmonic mean of precision and recall |
 | ROC-AUC | [See MLflow] | Overall discrimination ability |
 | Accuracy | [See MLflow] | Overall correct predictions |
 
@@ -116,15 +117,20 @@ Actual Positive        [FN]                [TP]
 ```
 *Note: Full confusion matrix available in MLflow runs*
 
-### Baseline Comparison
+### Model Comparison
 
 | Model | PR-AUC (Test) | F1-Score | Precision | Recall |
 |-------|--------|----------|-----------|--------|
-| Baseline (Z-Score) | 0.0855 | 0.0000 | 0.0000 | 0.0000 |
-| Logistic Regression | 0.0699 | 0.1239 | 0.0666 | 0.8977 |
-| **Difference** | -18.2% | +12.39 | +6.66 | +89.77 |
+| Baseline (Z-Score) | 0.3149 | 0.0000 | 0.0000 | 0.0000 |
+| Logistic Regression | 0.2298 | 0.2707 | 0.1724 | 0.6297 |
+| XGBoost | 0.2435 | 0.2777 | 0.4255 | 0.2057 |
 
-**Key Finding:** The baseline model (z-score threshold) achieves slightly higher PR-AUC (0.0855 vs 0.0699) but fails to detect any spikes (0% recall). The logistic regression model successfully detects 89.77% of spikes (high recall) but with lower precision (6.66%), indicating it's more sensitive but produces more false positives. The logistic model is more useful for alerting systems where detecting spikes is prioritized over precision.
+**Key Findings:**
+- **Baseline:** PR-AUC 0.3149 but has 0% recall - threshold too conservative
+- **Logistic Regression:** Balanced performance with 62.97% recall and 17.24% precision, suitable for alerting systems
+- **XGBoost:** Best overall PR-AUC (0.2435) with highest precision (42.55%) but lower recall (20.57%), best for precision-focused use cases
+
+**Feature Set:** All models trained with expanded feature set including log returns (log_return_std_30s/60s/300s) and spread volatility (spread_std_300s, spread_mean_60s), totaling 15 features.
 
 ### Performance Requirements
 - **Latency:** Inference must complete in < 120 seconds (2x real-time for 60-second windows)
@@ -251,10 +257,11 @@ xgboost: 2.0.0 (if applicable)
 ## Changelog
 
 ### v1.0 (November 9, 2025)
-- Initial model release
-- Baseline: Z-score rule-based detector (PR-AUC: 0.0855)
-- ML Model: Logistic Regression (PR-AUC: 0.0699, Recall: 89.77%)
-- Features: 5 engineered features from tick data (volume_24h_pct_change not available)
+- Initial model release with expanded feature set
+- Baseline: Z-score rule-based detector (PR-AUC: 0.3149)
+- Logistic Regression: PR-AUC 0.2298, Precision 17.24%, Recall 62.97%
+- XGBoost: PR-AUC 0.2435 (BEST), Precision 42.55%, Recall 20.57%
+- Features: 15 engineered features including log returns (log_return_std_30s/60s/300s) and spread volatility (spread_std_300s, spread_mean_60s)
 - Evaluation: Time-based train/val/test split (70/15/15)
 
 ---

@@ -38,7 +38,7 @@
 
 ---
 
-## Model Selection: **Selected-Base**
+## Model Selection: **Selected-base**
 
 **Decision:** Use this model as the base for team integration.
 
@@ -55,31 +55,34 @@
 
 ---
 
-## Integration Steps
+## Exact Integration Steps
 
-### 1. Setup Infrastructure
+### Step 1: Setup Infrastructure
 ```bash
-cd docker
+cd handoff/docker
+cp .env.example .env  # Edit .env if needed
 docker compose up -d
 ```
 
-### 2. Verify Data Pipeline
+### Step 2: Verify Data Pipeline
 ```bash
-# Test feature generation
+# Test feature generation (from handoff directory root)
 python features/featurizer.py --topic_in ticks.raw --topic_out ticks.features
 
 # Verify replay consistency
 python scripts/replay.py --raw data/raw/*.ndjson --out data/processed/features.parquet
 ```
 
-### 3. Load Model
+### Step 3: Load Model and Run Inference
 ```bash
-python models/infer.py --model models/artifacts/logistic_regression/model.pkl --features data/processed/features.parquet
+# Run inference on sample features
+python models/infer.py --model models/artifacts/logistic_regression/model.pkl --features data/processed/features_sample.parquet
 ```
 
-### 4. View Results
+### Step 4: View Results
 - MLflow UI: http://localhost:5001
 - Evidently Report: `reports/evidently/train_test_drift_report.html`
+- Model Evaluation: `reports/model_eval.pdf`
 
 ---
 

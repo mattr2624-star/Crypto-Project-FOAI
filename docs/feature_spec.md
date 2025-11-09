@@ -2,8 +2,8 @@
 
 ## Project: Real-Time Crypto Volatility Detection
 
-**Date:** [Insert Date]  
-**Author:** [Your Name]
+**Date:** November 9, 2025  
+**Author:** Melissa Wong
 
 ---
 
@@ -39,13 +39,13 @@ label = 0  if σ_future < τ   (normal conditions)
 ```
 
 ### Chosen Threshold (τ)
-**Value:** `0.000066` (from EDA analysis)
+**Value:** `0.000026` (from EDA analysis, 90th percentile)
 
 **Justification:**
 - Selected at the **90th percentile** of observed future volatility
-- Based on percentile analysis in EDA (see `notebooks/eda.ipynb`, Cell 14)
+- Based on percentile analysis in EDA (see `notebooks/eda.ipynb`)
 - This threshold captures the top 10% of volatile periods
-- Results in approximately **10.0%** positive class (spikes)
+- Results in exactly **10.0%** positive class (spikes) - 5,251 out of 52,524 samples
 
 **Trade-offs:**
 - Higher threshold → fewer false positives, but might miss moderate spikes
@@ -70,20 +70,58 @@ label = 0  if σ_future < τ   (normal conditions)
 
 ### 3.2 Windowed Features
 
-Features are computed over three rolling windows: **30s, 60s, and 300s (5min)**
+Features are computed over rolling windows: **30s, 60s (1min), and 300s (5min)**
 
-#### Return Statistics (per window)
-- `return_mean_{W}s`: Mean return over window W
-- `return_std_{W}s`: Standard deviation of returns (volatility proxy)
-- `return_min_{W}s`: Minimum return observed
-- `return_max_{W}s`: Maximum return observed
+#### Feature Categories
 
-#### Price Statistics (per window)
-- `price_mean_{W}s`: Average price over window
-- `price_std_{W}s`: Standard deviation of prices
+**Price-based Features:**
+- **Simple Returns**: `r_t = (p_t - p_{t-1}) / p_{t-1}`
+- **Log Returns**: `log_r_t = log(p_t / p_{t-1}) = log(p_t) - log(p_{t-1})` (more stable for crypto)
+- **Rolling Volatility**: Standard deviation of returns over window
+- **Price Momentum**: Mean, min, max returns over window
 
-#### Market Activity (per window)
-- `tick_count_{W}s`: Number of ticks received in window (intensity proxy)
+**Market Microstructure Features:**
+- **Bid-ask Spread**: Absolute and basis points (bps)
+- **Spread Volatility**: Standard deviation of spreads over window
+
+**Volume/Activity Features:**
+- **Trade Intensity**: Tick count per window
+- **Time Since Last Trade**: Seconds since previous tick
+
+#### Complete Feature List
+
+| Feature Name | Formula | Window | Aggregation | Missing Value Handling |
+|--------------|---------|--------|-------------|------------------------|
+| `return_mean_{window}s` | `mean((p_t - p_{t-1}) / p_{t-1})` | 30s, 60s, 300s | Mean | 0.0 |
+| `return_std_{window}s` | `std((p_t - p_{t-1}) / p_{t-1})` | 30s, 60s, 300s | Std Dev | 0.0 |
+| `return_min_{window}s` | `min((p_t - p_{t-1}) / p_{t-1})` | 30s, 60s, 300s | Min | 0.0 |
+| `return_max_{window}s` | `max((p_t - p_{t-1}) / p_{t-1})` | 30s, 60s, 300s | Max | 0.0 |
+| `log_return_mean_{window}s` | `mean(log(p_t) - log(p_{t-1}))` | 30s, 60s, 300s | Mean | 0.0 |
+| `log_return_std_{window}s` | `std(log(p_t) - log(p_{t-1}))` | 30s, 60s, 300s | Std Dev | 0.0 |
+| `price_mean_{window}s` | `mean(p_t)` | 30s, 60s, 300s | Mean | 0.0 |
+| `price_std_{window}s` | `std(p_t)` | 30s, 60s, 300s | Std Dev | 0.0 |
+| `tick_count_{window}s` | Count of ticks | 30s, 60s, 300s | Count | 0 |
+| `spread_std_{window}s` | `std(spread_t)` | 30s, 60s, 300s | Std Dev | 0.0 |
+| `spread_mean_{window}s` | `mean(spread_t)` | 30s, 60s, 300s | Mean | 0.0 |
+| `time_since_last_trade` | `t_current - t_previous` (seconds) | N/A | Difference | 0.0 |
+| `gap_seconds` | Time gap between consecutive ticks | N/A | Difference | 0.0 |
+
+#### Features Used in Model (8 features)
+
+The current model uses a subset of features selected based on feature separation analysis:
+
+| Feature Name | Description | Window | Rationale |
+|--------------|-------------|--------|-----------|
+| `return_std_60s` | 60-second volatility | 60s | Best separation (0.78 std dev) |
+| `return_std_30s` | 30-second volatility | 30s | Excellent separation (0.66 std dev) |
+| `return_std_300s` | 300-second volatility | 300s | Longer-term context |
+| `return_mean_60s` | 1-minute return mean | 60s | Good separation (0.74 std dev) |
+| `return_mean_300s` | 5-minute return mean | 300s | Moderate separation (0.51 std dev) |
+| `return_min_30s` | Minimum return in 30s | 30s | Good separation (0.64 std dev) |
+| `tick_count_60s` | Trading intensity | 60s | Moderate separation (0.21 std dev) |
+| `return_range_60s` | Return range (max - min) | 60s | Derived feature |
+
+**Note:** Additional features are computed but not used in the current model. Log returns and spread volatility features are available for future model iterations.
 
 ### 3.3 Feature Engineering Rationale
 
@@ -101,14 +139,39 @@ Features are computed over three rolling windows: **30s, 60s, and 300s (5min)**
 
 ---
 
-## 4. Data Processing Pipeline
+## 4. Reproducibility & Determinism
 
-### 4.1 Real-Time Pipeline
+### 4.1 Deterministic Computations
+- ✅ No randomness in feature computation logic
+- ✅ Fixed window boundaries (time-based, not tick-based)
+- ✅ Deterministic aggregation functions (mean, std, min, max)
+
+### 4.2 Timestamp Handling
+- **Timezone:** UTC (explicitly enforced)
+- **Format:** ISO 8601 or Unix timestamp (auto-detected)
+- **Consistency:** All timestamps converted to UTC timezone-aware
+- **Validation:** Timestamp ordering checked (warns on backward jumps >1s)
+
+### 4.3 Replay Verification
+- **Script:** `scripts/replay.py` verifies reproducibility
+- **Method:** Re-process raw data through feature pipeline
+- **Verification:** Compare replayed features with original (within 1e-6 tolerance)
+- **Usage:** `python scripts/replay.py --raw data/raw/*.ndjson --compare data/processed/features.parquet`
+
+### 4.4 Window Boundaries
+- **Type:** Fixed-size sliding windows (time-based)
+- **Boundaries:** `[current_time - window_seconds, current_time]` (inclusive)
+- **Example:** At t=15:01:00, 60s window includes [15:00:00, 15:01:00]
+- **Documentation:** Window logic documented in code comments
+
+## 5. Data Processing Pipeline
+
+### 5.1 Real-Time Pipeline
 ```
 Coinbase WebSocket → Kafka (ticks.raw) → Featurizer → Kafka (ticks.features) → Parquet
 ```
 
-### 4.2 Replay Pipeline (for reproducibility)
+### 5.2 Replay Pipeline (for reproducibility)
 ```
 NDJSON files → replay.py → FeatureComputer → Parquet
 ```
@@ -120,33 +183,84 @@ NDJSON files → replay.py → FeatureComputer → Parquet
 ## 5. Data Quality Considerations
 
 ### 5.1 Missing Data Handling
-- **Midprice missing:** Skip tick (requires both bid and ask)
-- **Insufficient window data:** Features set to `None` or 0 for counts
-- **Timestamp issues:** Use current system time as fallback
 
-### 5.2 Edge Cases
+**Strategy:** Set features to `0.0` for consistency (not `None` or `NaN`)
+
+- **Midprice missing:** Skip tick (requires both bid and ask)
+- **Insufficient window data:** Features set to `0.0` (occurs for first few ticks)
+- **Timestamp issues:** Use current UTC time as fallback
+- **NaN/Infinite values:** Detected and replaced with `0.0` (logged as warning)
+
+**Rationale:** 
+- Consistent handling downstream (train.py fills NaN with 0)
+- Prevents downstream errors from None values
+- Missing data is rare (< 0.01% in practice)
+
+### 5.2 Gap Handling
+
+**Gap Detection:**
+- Feature `gap_seconds` tracks time between consecutive ticks
+- Large gaps (>10s) logged as warnings
+- Gaps are natural in crypto markets (24/7 trading but brief pauses)
+
+**Current Strategy:**
+- No forward-fill implemented (gaps preserved in features)
+- Windowed features naturally handle gaps (fewer ticks = lower tick_count)
+- Future enhancement: Forward-fill short gaps (<10s) with last known price
+
+**Gap Tolerance:**
+- Windows with >10% missing ticks may have reduced signal quality
+- Documented in feature statistics but not filtered
+- Model learns to handle variable tick density
+
+### 5.3 Data Quality Checks
+
+**Implemented Checks:**
+- ✅ NaN detection and replacement
+- ✅ Infinite value detection and replacement
+- ✅ Timestamp ordering validation (warns on >1s backward jumps)
+- ✅ Gap detection and logging
+
+**Monitoring:**
+- Periodic statistics logged (min, max, mean) during processing
+- Quality issues logged as warnings
+- Feature distributions tracked in Evidently reports
+
+### 5.4 Edge Cases
+
 - **Market reconnections:** Feature windows reset when buffer empty
 - **Extreme outliers:** Not filtered in feature computation (model's job)
-- **Time gaps:** No interpolation; gaps natural in windowed features
+- **Time gaps:** Preserved in features (no interpolation)
+- **Out-of-order timestamps:** Validated and logged (small backward jumps allowed)
 
-### 5.3 Known Limitations
-- Features lag reality by ~[X]ms (typical Kafka + compute latency)
+### 5.5 Known Limitations
+
+- Features lag reality by ~100-500ms (typical Kafka + compute latency)
 - Window sizes fixed (not adaptive to market regime)
 - No handling of trading halts or circuit breakers
+- Volume-based features not available (ticker channel doesn't provide volume data)
+- Forward-fill not implemented (gaps preserved)
 
 ---
 
 ## 6. Feature Statistics
 
-**From EDA (`notebooks/eda.ipynb`):**
+**From EDA (`notebooks/eda.ipynb`) and processed data:**
 
 | Metric | Value |
 |--------|-------|
-| Total samples | [INSERT] |
-| Time range | [INSERT] |
-| Positive class % | [INSERT]% |
-| Missing data % | [INSERT]% |
-| Avg ticks/second | [INSERT] |
+| Total samples | 52,524 |
+| Time range | 2025-11-08 15:12:31 to 2025-11-09 01:25:17 (~10.2 hours) |
+| Positive class % | 10.00% |
+| Missing data % | 0.01% |
+| Avg ticks/second | 1.43 |
+
+**Feature Statistics (mean, std):**
+- `return_mean_60s`: mean=-0.000000, std=0.000002
+- `return_mean_300s`: mean=-0.000000, std=0.000001
+- `return_std_300s`: mean=0.000040, std=0.000013
+- `spread`: mean=0.271610, std=0.948744
+- `spread_bps`: mean=0.026680, std=0.093189
 
 ---
 
@@ -161,9 +275,14 @@ NDJSON files → replay.py → FeatureComputer → Parquet
 
 ## Appendix: Feature Correlation
 
-[Include key correlation findings from EDA]
+**Correlation with target variable (`volatility_spike`):**
 
 Top 3 features correlated with future volatility:
-1. [Feature name]: r = [value]
-2. [Feature name]: r = [value]
-3. [Feature name]: r = [value]
+1. `return_std_300s`: r = 0.1917 (strongest predictor)
+2. `return_mean_60s`: r = 0.0416
+3. `return_mean_300s`: r = 0.0357
+
+**Interpretation:**
+- `return_std_300s` (5-minute volatility) shows the strongest positive correlation with future volatility spikes, confirming that recent volatility is a key indicator
+- Short-term return means show weaker but positive correlations
+- Spread features (`spread`, `spread_bps`) show minimal correlation with future volatility in this dataset

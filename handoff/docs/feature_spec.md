@@ -2,8 +2,8 @@
 
 ## Project: Real-Time Crypto Volatility Detection
 
-**Date:** [Insert Date]  
-**Author:** [Your Name]
+**Date:** November 9, 2025  
+**Author:** Melissa Wong
 
 ---
 
@@ -39,13 +39,13 @@ label = 0  if σ_future < τ   (normal conditions)
 ```
 
 ### Chosen Threshold (τ)
-**Value:** `0.000066` (from EDA analysis)
+**Value:** `0.000026` (from EDA analysis, 90th percentile)
 
 **Justification:**
 - Selected at the **90th percentile** of observed future volatility
-- Based on percentile analysis in EDA (see `notebooks/eda.ipynb`, Cell 14)
+- Based on percentile analysis in EDA (see `notebooks/eda.ipynb`)
 - This threshold captures the top 10% of volatile periods
-- Results in approximately **10.0%** positive class (spikes)
+- Results in exactly **10.0%** positive class (spikes) - 5,251 out of 52,524 samples
 
 **Trade-offs:**
 - Higher threshold → fewer false positives, but might miss moderate spikes
@@ -70,20 +70,19 @@ label = 0  if σ_future < τ   (normal conditions)
 
 ### 3.2 Windowed Features
 
-Features are computed over three rolling windows: **30s, 60s, and 300s (5min)**
+Features are computed over rolling windows: **60s (1min) and 300s (5min)**
 
-#### Return Statistics (per window)
-- `return_mean_{W}s`: Mean return over window W
-- `return_std_{W}s`: Standard deviation of returns (volatility proxy)
-- `return_min_{W}s`: Minimum return observed
-- `return_max_{W}s`: Maximum return observed
+#### Features Used in Model (5 features)
 
-#### Price Statistics (per window)
-- `price_mean_{W}s`: Average price over window
-- `price_std_{W}s`: Standard deviation of prices
+| Feature Name | Description | Window | Type |
+|--------------|-------------|--------|------|
+| `return_mean_60s` | Mean return over 60-second window | 60s | float |
+| `return_mean_300s` | Mean return over 300-second (5min) window | 300s | float |
+| `return_std_300s` | Standard deviation of returns (volatility proxy) | 300s | float |
+| `spread` | Bid-ask spread (absolute) | Current | float |
+| `spread_bps` | Bid-ask spread in basis points | Current | float |
 
-#### Market Activity (per window)
-- `tick_count_{W}s`: Number of ticks received in window (intensity proxy)
+**Note:** Additional windowed features are computed (30s, 60s, 300s windows with return/price statistics and tick counts) but only the 5 features above are used in the final model.
 
 ### 3.3 Feature Engineering Rationale
 
@@ -130,23 +129,31 @@ NDJSON files → replay.py → FeatureComputer → Parquet
 - **Time gaps:** No interpolation; gaps natural in windowed features
 
 ### 5.3 Known Limitations
-- Features lag reality by ~[X]ms (typical Kafka + compute latency)
+- Features lag reality by ~100-500ms (typical Kafka + compute latency)
 - Window sizes fixed (not adaptive to market regime)
 - No handling of trading halts or circuit breakers
+- Volume-based features not available (ticker channel doesn't provide volume data)
 
 ---
 
 ## 6. Feature Statistics
 
-**From EDA (`notebooks/eda.ipynb`):**
+**From EDA (`notebooks/eda.ipynb`) and processed data:**
 
 | Metric | Value |
 |--------|-------|
-| Total samples | [INSERT] |
-| Time range | [INSERT] |
-| Positive class % | [INSERT]% |
-| Missing data % | [INSERT]% |
-| Avg ticks/second | [INSERT] |
+| Total samples | 52,524 |
+| Time range | 2025-11-08 15:12:31 to 2025-11-09 01:25:17 (~10.2 hours) |
+| Positive class % | 10.00% |
+| Missing data % | 0.01% |
+| Avg ticks/second | 1.43 |
+
+**Feature Statistics (mean, std):**
+- `return_mean_60s`: mean=-0.000000, std=0.000002
+- `return_mean_300s`: mean=-0.000000, std=0.000001
+- `return_std_300s`: mean=0.000040, std=0.000013
+- `spread`: mean=0.271610, std=0.948744
+- `spread_bps`: mean=0.026680, std=0.093189
 
 ---
 
@@ -161,9 +168,14 @@ NDJSON files → replay.py → FeatureComputer → Parquet
 
 ## Appendix: Feature Correlation
 
-[Include key correlation findings from EDA]
+**Correlation with target variable (`volatility_spike`):**
 
 Top 3 features correlated with future volatility:
-1. [Feature name]: r = [value]
-2. [Feature name]: r = [value]
-3. [Feature name]: r = [value]
+1. `return_std_300s`: r = 0.1917 (strongest predictor)
+2. `return_mean_60s`: r = 0.0416
+3. `return_mean_300s`: r = 0.0357
+
+**Interpretation:**
+- `return_std_300s` (5-minute volatility) shows the strongest positive correlation with future volatility spikes, confirming that recent volatility is a key indicator
+- Short-term return means show weaker but positive correlations
+- Spread features (`spread`, `spread_bps`) show minimal correlation with future volatility in this dataset

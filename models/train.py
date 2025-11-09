@@ -72,8 +72,11 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Extract feature columns and target variable.
     
-    Supports both actual feature names (from featurizer) and expected names
-    (for backward compatibility).
+    Uses improved feature set based on separation analysis:
+    - High separation features: return_std_60s, return_std_30s, return_min_30s
+    - Good existing features: return_mean_60s, return_mean_300s
+    - Trade intensity: tick_count_60s
+    - Removed: spread, spread_bps (poor separation)
     
     Args:
         df: Features dataframe
@@ -81,37 +84,45 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     Returns:
         Tuple of (X, y)
     """
-    # Expected feature names (for backward compatibility)
-    expected_features = [
-        'price_return_1min',
-        'price_return_5min',
-        'price_volatility_5min',
-        'bid_ask_spread',
-        'bid_ask_spread_bps',
-        'volume_24h_pct_change'
+    # Priority features (ordered by importance)
+    # Updated with log returns (more stable for crypto, excellent separation)
+    priority_features = [
+        # High separation volatility features (log returns recommended for crypto)
+        'log_return_std_30s',  # 30-second log return volatility (best: 0.577)
+        'log_return_std_60s',  # 60-second log return volatility (excellent: 0.569)
+        'log_return_std_300s', # 300-second log return volatility (very good: 0.502)
+        
+        # Keep simple returns for backward compatibility and comparison
+        'return_std_60s',      # 60-second volatility (good: 0.78)
+        'return_std_30s',      # 30-second volatility (excellent: 0.66)
+        'return_std_300s',     # 300-second volatility (keep for longer-term)
+        
+        # Return statistics
+        'return_mean_60s',     # 1-minute return mean (good: 0.74)
+        'return_mean_300s',    # 5-minute return mean (moderate: 0.51)
+        'return_min_30s',      # Minimum return in 30s (good: 0.64)
+        
+        # Log return means (moderate separation)
+        'log_return_mean_30s', # 30-second log return mean (moderate: 0.252)
+        'log_return_mean_60s', # 60-second log return mean (moderate: 0.188)
+        
+        # Spread volatility (moderate separation)
+        'spread_std_300s',     # 300-second spread volatility (moderate: 0.240)
+        'spread_mean_60s',     # 60-second spread mean (moderate: 0.172)
+        
+        # Trade intensity
+        'tick_count_60s',      # Trading intensity (moderate: 0.21)
     ]
     
-    # Actual feature names from featurizer
-    actual_features = [
-        'return_mean_60s',      # 1-minute return (60s = 1min)
-        'return_mean_300s',     # 5-minute return (300s = 5min)
-        'return_std_300s',      # 5-minute volatility (300s = 5min)
-        'spread',               # bid-ask spread
-        'spread_bps',           # bid-ask spread in basis points
-        # 'volume_24h_pct_change' - not available, will be skipped
-    ]
+    # Select available features
+    available_cols = [col for col in priority_features if col in df.columns]
     
-    # Try expected names first, then fall back to actual names
-    feature_cols = []
-    for expected, actual in zip(expected_features, actual_features):
-        if expected in df.columns:
-            feature_cols.append(expected)
-        elif actual in df.columns:
-            feature_cols.append(actual)
-        # If neither exists, skip (e.g., volume_24h_pct_change)
-    
-    # Use only available columns
-    available_cols = [col for col in feature_cols if col in df.columns]
+    # Create derived feature: return range (return_max - return_min)
+    if 'return_max_60s' in df.columns and 'return_min_60s' in df.columns:
+        df = df.copy()
+        df['return_range_60s'] = df['return_max_60s'] - df['return_min_60s']
+        if 'return_range_60s' not in available_cols:
+            available_cols.append('return_range_60s')
     
     if not available_cols:
         raise ValueError("No matching feature columns found in dataframe. "
@@ -213,15 +224,15 @@ def train_baseline(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.Dat
     X_test, y_test = prepare_features(test_df)
     
     # Use only volatility feature for baseline
-    # Support both naming conventions
+    # Prefer return_std_60s (best separation), then fallback to others
     volatility_col = None
-    for col_name in ['price_volatility_5min', 'return_std_300s']:
+    for col_name in ['return_std_60s', 'return_std_30s', 'price_volatility_5min', 'return_std_300s']:
         if col_name in X_train.columns:
             volatility_col = col_name
             break
     
     if volatility_col is None:
-        raise ValueError("No volatility column found. Expected 'price_volatility_5min' or 'return_std_300s'")
+        raise ValueError("No volatility column found. Expected return_std_60s, return_std_30s, return_std_300s, or price_volatility_5min")
     
     X_train_base = X_train[[volatility_col]]
     X_val_base = X_val[[volatility_col]]
@@ -312,6 +323,13 @@ def train_logistic_regression(train_df: pd.DataFrame, val_df: pd.DataFrame,
     X_val, y_val = prepare_features(val_df)
     X_test, y_test = prepare_features(test_df)
     
+    # Scale features for better convergence
+    from sklearn.preprocessing import StandardScaler
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_val_scaled = scaler.transform(X_val)
+    X_test_scaled = scaler.transform(X_test)
+    
     with mlflow.start_run(run_name="logistic_regression"):
         # Log parameters
         mlflow.log_param("model_type", "logistic_regression")
@@ -321,6 +339,7 @@ def train_logistic_regression(train_df: pd.DataFrame, val_df: pd.DataFrame,
         mlflow.log_param("features", list(X_train.columns))
         mlflow.log_param("class_weight", "balanced")
         mlflow.log_param("max_iter", 1000)
+        mlflow.log_param("feature_scaling", "StandardScaler")
         
         # Train model
         model = LogisticRegression(
@@ -328,16 +347,16 @@ def train_logistic_regression(train_df: pd.DataFrame, val_df: pd.DataFrame,
             max_iter=1000,
             random_state=42
         )
-        model.fit(X_train, y_train)
+        model.fit(X_train_scaled, y_train)
         
         # Validation metrics
-        y_val_pred = model.predict(X_val)
-        y_val_proba = model.predict_proba(X_val)[:, 1]
+        y_val_pred = model.predict(X_val_scaled)
+        y_val_proba = model.predict_proba(X_val_scaled)[:, 1]
         val_metrics = compute_metrics(y_val.values, y_val_pred, y_val_proba)
         
         # Test metrics
-        y_test_pred = model.predict(X_test)
-        y_test_proba = model.predict_proba(X_test)[:, 1]
+        y_test_pred = model.predict(X_test_scaled)
+        y_test_proba = model.predict_proba(X_test_scaled)[:, 1]
         test_metrics = compute_metrics(y_test.values, y_test_pred, y_test_proba)
         
         # Log metrics
@@ -383,19 +402,26 @@ def train_logistic_regression(train_df: pd.DataFrame, val_df: pd.DataFrame,
                 else:
                     raise
         
+        # Save scaler with model (wrap in Pipeline for easy use)
+        from sklearn.pipeline import Pipeline
+        model_pipeline = Pipeline([
+            ('scaler', scaler),
+            ('classifier', model)
+        ])
+        
         # Log model
         try:
-            mlflow.sklearn.log_model(model, "model")
+            mlflow.sklearn.log_model(model_pipeline, "model")
         except OSError as e:
             if "Read-only file system" in str(e) or "/mlflow" in str(e):
                 print(f"⚠ Warning: Could not log model to MLflow server")
             else:
                 raise
         
-        # Save locally
+        # Save locally (save pipeline with scaler)
         model_path = plots_dir / "model.pkl"
         with open(model_path, 'wb') as f:
-            pickle.dump(model, f)
+            pickle.dump(model_pipeline, f)
         
         print(f"Validation PR-AUC: {val_metrics['pr_auc']:.4f}")
         print(f"Test PR-AUC: {test_metrics['pr_auc']:.4f}")

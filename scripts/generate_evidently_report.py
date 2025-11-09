@@ -1,6 +1,8 @@
 """
 Generate Evidently report to monitor data quality and drift.
-Compares early vs late windows of collected data.
+Supports two report types:
+1. data_drift: Compares early vs late windows of collected data
+2. train_test: Compares train vs test datasets (using same split as training)
 """
 
 import argparse
@@ -8,9 +10,14 @@ import pandas as pd
 from pathlib import Path
 from datetime import timedelta
 
-from evidently.report import Report
-from evidently.metric_preset import DataQualityPreset, DataDriftPreset
-from evidently.metrics import *
+from evidently import Report
+from evidently.metrics import (
+    ValueDrift,
+    DriftedColumnsCount,
+    DatasetMissingValueCount,
+    ColumnCount,
+    RowCount,
+)
 
 import logging
 
@@ -57,9 +64,54 @@ def load_and_split_data(features_path: str, split_ratio: float = 0.5):
     return reference, current
 
 
+def load_train_test_split(features_path: str, val_size: float = 0.15, test_size: float = 0.15):
+    """
+    Load features and split into train/val/test with time-based split.
+    Same logic as models/train.py for consistency.
+    
+    Args:
+        features_path: Path to features parquet file
+        val_size: Fraction for validation set (default 0.15)
+        test_size: Fraction for test set (default 0.15)
+        
+    Returns:
+        train_df, test_df (for drift comparison)
+    """
+    logger.info(f"Loading features from {features_path}")
+    df = pd.read_parquet(features_path)
+    df = df.sort_values('timestamp').reset_index(drop=True)
+    
+    # Time-based split (same as training script)
+    n = len(df)
+    train_end = int(n * (1 - val_size - test_size))
+    val_end = int(n * (1 - test_size))
+    
+    train_df = df.iloc[:train_end].copy()
+    val_df = df.iloc[train_end:val_end].copy()
+    test_df = df.iloc[val_end:].copy()
+    
+    logger.info(f"Train/test split:")
+    logger.info(f"  Train: {len(train_df)} rows ({len(train_df)/n*100:.1f}%)")
+    logger.info(f"  Val:   {len(val_df)} rows ({len(val_df)/n*100:.1f}%)")
+    logger.info(f"  Test:  {len(test_df)} rows ({len(test_df)/n*100:.1f}%)")
+    
+    if 'timestamp' in df.columns:
+        logger.info(f"  Train time: {train_df['timestamp'].min()} to {train_df['timestamp'].max()}")
+        logger.info(f"  Test time:  {test_df['timestamp'].min()} to {test_df['timestamp'].max()}")
+    
+    return train_df, test_df
+
+
 def select_features_for_drift(df: pd.DataFrame) -> list:
     """
-    Select numeric features for drift analysis.
+    Select features for drift analysis using the same logic as train.py/infer.py.
+    This ensures we analyze the same features that are actually used in the model.
+    
+    Uses improved feature set:
+    - High separation: return_std_60s, return_std_30s, return_min_30s, return_range_60s
+    - Good existing: return_mean_60s, return_mean_300s, return_std_300s
+    - Trade intensity: tick_count_60s
+    - Removed: spread, spread_bps (poor separation)
     
     Args:
         df: DataFrame with features
@@ -67,15 +119,55 @@ def select_features_for_drift(df: pd.DataFrame) -> list:
     Returns:
         List of column names to analyze
     """
-    # Get numeric columns
-    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+    # Priority features (same as train.py)
+    # Updated with log returns and spread volatility
+    priority_features = [
+        # High separation volatility features (log returns recommended for crypto)
+        'log_return_std_30s',  # 30-second log return volatility (best: 0.577)
+        'log_return_std_60s',  # 60-second log return volatility (excellent: 0.569)
+        'log_return_std_300s', # 300-second log return volatility (very good: 0.502)
+        
+        # Keep simple returns for backward compatibility
+        'return_std_60s',      # 60-second volatility (good: 0.78)
+        'return_std_30s',      # 30-second volatility (excellent: 0.66)
+        'return_std_300s',     # 300-second volatility (keep for longer-term)
+        
+        # Return statistics
+        'return_mean_60s',     # 1-minute return mean (good: 0.74)
+        'return_mean_300s',    # 5-minute return mean (moderate: 0.51)
+        'return_min_30s',      # Minimum return in 30s (good: 0.64)
+        
+        # Log return means (moderate separation)
+        'log_return_mean_30s', # 30-second log return mean (moderate: 0.252)
+        'log_return_mean_60s', # 60-second log return mean (moderate: 0.188)
+        
+        # Spread volatility (moderate separation)
+        'spread_std_300s',     # 300-second spread volatility (moderate: 0.240)
+        'spread_mean_60s',     # 60-second spread mean (moderate: 0.172)
+        
+        # Trade intensity
+        'tick_count_60s',      # Trading intensity (moderate: 0.21)
+    ]
     
-    # Exclude certain columns
-    exclude = ['timestamp', 'label', 'future_volatility']
-    feature_cols = [col for col in numeric_cols if col not in exclude]
+    # Select available features
+    available_cols = [col for col in priority_features if col in df.columns]
     
-    logger.info(f"Selected {len(feature_cols)} features for drift analysis")
-    return feature_cols
+    # Create derived feature: return range (return_max - return_min)
+    if 'return_max_60s' in df.columns and 'return_min_60s' in df.columns:
+        df = df.copy()
+        df['return_range_60s'] = df['return_max_60s'] - df['return_min_60s']
+        if 'return_range_60s' not in available_cols:
+            available_cols.append('return_range_60s')
+    
+    if not available_cols:
+        logger.warning("No matching feature columns found. Falling back to all numeric columns.")
+        # Fallback: get numeric columns excluding metadata
+        numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+        exclude = ['timestamp', 'label', 'future_volatility', 'volatility_spike']
+        available_cols = [col for col in numeric_cols if col not in exclude]
+    
+    logger.info(f"Selected {len(available_cols)} features for drift analysis: {available_cols}")
+    return available_cols
 
 
 def generate_report(reference_df: pd.DataFrame, 
@@ -83,6 +175,7 @@ def generate_report(reference_df: pd.DataFrame,
                    output_path: str = 'reports/evidently/data_drift_report.html'):
     """
     Generate Evidently report comparing reference and current data.
+    Only analyzes the same feature columns used in training/inference.
     
     Args:
         reference_df: Reference (early) dataset
@@ -94,22 +187,47 @@ def generate_report(reference_df: pd.DataFrame,
     
     logger.info("Generating Evidently report...")
     
+    # Select only the features used in training/inference
+    feature_cols = select_features_for_drift(reference_df)
+    
+    # Ensure both datasets have the same columns
+    common_cols = [col for col in feature_cols if col in current_df.columns]
+    if len(common_cols) != len(feature_cols):
+        missing = set(feature_cols) - set(common_cols)
+        logger.warning(f"Some features missing in current dataset: {missing}")
+    
+    # Filter to only include relevant feature columns (plus timestamp for context)
+    cols_to_include = common_cols.copy()
+    if 'timestamp' in reference_df.columns:
+        cols_to_include.insert(0, 'timestamp')
+    
+    reference_filtered = reference_df[cols_to_include].copy()
+    current_filtered = current_df[cols_to_include].copy()
+    
+    logger.info(f"Analyzing {len(common_cols)} feature columns: {common_cols}")
+    
     # Create report with data quality and drift analysis
+    # ValueDrift requires one metric per column, so create metrics for each feature
+    drift_metrics = [ValueDrift(column=col) for col in common_cols]
+    
     report = Report(metrics=[
-        DataQualityPreset(),
-        DataDriftPreset(),
+        DatasetMissingValueCount(),
+        ColumnCount(),
+        RowCount(),
+        DriftedColumnsCount(),
+        *drift_metrics,  # Unpack list of ValueDrift metrics
     ])
     
-    # Run report
-    report.run(reference_data=reference_df, current_data=current_df)
+    # Run report on filtered data
+    snapshot = report.run(reference_data=reference_filtered, current_data=current_filtered)
     
     # Save as HTML
-    report.save_html(output_path)
+    snapshot.save_html(output_path)
     logger.info(f"✓ Report saved to {output_path}")
     
     # Also save as JSON for programmatic access
     json_path = output_path.replace('.html', '.json')
-    report.save_json(json_path)
+    snapshot.save_json(json_path)
     logger.info(f"✓ JSON report saved to {json_path}")
     
     return report
@@ -123,15 +241,24 @@ def main():
     parser.add_argument('--output',
                        default='reports/evidently/data_drift_report.html',
                        help='Output path for HTML report')
+    parser.add_argument('--report_type',
+                       choices=['data_drift', 'train_test'],
+                       default='data_drift',
+                       help='Type of report: data_drift (early/late) or train_test (train/test)')
     parser.add_argument('--split_ratio',
                        type=float,
                        default=0.5,
-                       help='Fraction of data to use as reference (default 0.5)')
+                       help='Fraction of data to use as reference for data_drift report (default 0.5)')
     
     args = parser.parse_args()
     
-    # Load and split data
-    reference, current = load_and_split_data(args.features, args.split_ratio)
+    # Load and split data based on report type
+    if args.report_type == 'train_test':
+        logger.info("Generating train/test drift report...")
+        reference, current = load_train_test_split(args.features)
+    else:
+        logger.info("Generating early/late data drift report...")
+        reference, current = load_and_split_data(args.features, args.split_ratio)
     
     # Generate report
     report = generate_report(reference, current, args.output)

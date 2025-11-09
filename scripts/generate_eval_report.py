@@ -213,7 +213,7 @@ def create_confusion_matrices_page(pdf, test_results: dict):
     plt.close()
 
 
-def create_feature_importance_page(pdf, models_dict: dict):
+def create_feature_importance_page(pdf, models_dict: dict, X_test=None):
     """Create feature importance plots."""
     n_plots = sum(1 for m in models_dict.values() 
                   if hasattr(m['model'], 'coef_') or hasattr(m['model'], 'feature_importances_'))
@@ -241,9 +241,14 @@ def create_feature_importance_page(pdf, models_dict: dict):
             if hasattr(model, 'feature_names_in_'):
                 feature_names = list(model.feature_names_in_)
             else:
-                feature_names = ['price_return_1min', 'price_return_5min', 
-                               'price_volatility_5min', 'bid_ask_spread',
-                               'bid_ask_spread_bps']
+                # Fallback: try to get from test data columns passed to function
+                # This ensures we use the same features as training
+                if X_test is not None and hasattr(X_test, 'columns'):
+                    feature_names = list(X_test.columns)
+                else:
+                    # Last resort: use actual feature names (should match train.py)
+                    feature_names = ['return_mean_60s', 'return_mean_300s', 
+                                   'return_std_300s', 'spread', 'spread_bps']
             
             sorted_idx = np.argsort(np.abs(importance))
             feature_names_arr = np.array(feature_names)[sorted_idx]
@@ -257,13 +262,17 @@ def create_feature_importance_page(pdf, models_dict: dict):
             # XGBoost - use actual feature names from model
             importance = model.feature_importances_
             # Get feature names from the model's training data if available
-            # Otherwise use default names
             if hasattr(model, 'feature_names_in_'):
                 feature_names = list(model.feature_names_in_)
             else:
-                feature_names = ['price_return_1min', 'price_return_5min', 
-                               'price_volatility_5min', 'bid_ask_spread',
-                               'bid_ask_spread_bps']
+                # Fallback: try to get from test data columns passed to function
+                # This ensures we use the same features as training
+                if X_test is not None and hasattr(X_test, 'columns'):
+                    feature_names = list(X_test.columns)
+                else:
+                    # Last resort: use actual feature names (should match train.py)
+                    feature_names = ['return_mean_60s', 'return_mean_300s', 
+                                   'return_std_300s', 'spread', 'spread_bps']
             
             sorted_idx = np.argsort(importance)
             feature_names_arr = np.array(feature_names)[sorted_idx]
@@ -390,7 +399,7 @@ def generate_report(features_path: str, artifacts_dir: str, output_path: str):
         create_pr_curves_page(pdf, test_results)
         create_roc_curves_page(pdf, test_results)
         create_confusion_matrices_page(pdf, test_results)
-        create_feature_importance_page(pdf, models_dict)
+        create_feature_importance_page(pdf, models_dict, X_test)
     
     print(f"✓ Report saved to: {output_path}")
     
