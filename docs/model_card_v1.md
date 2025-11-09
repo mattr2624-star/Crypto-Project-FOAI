@@ -1,6 +1,6 @@
 # Model Card: Crypto Volatility Detection v1.0
 
-**Date:** [INSERT DATE]  
+**Date:** November 9, 2025  
 **Author:** Melissa Wong  
 **Project:** Real-Time Cryptocurrency Volatility Detection
 
@@ -11,10 +11,10 @@
 ### Model Description
 This model predicts short-term volatility spikes in cryptocurrency markets (specifically BTC-USD) using real-time tick data from Coinbase. The model predicts whether significant price volatility will occur in the next 60 seconds.
 
-**Model Type:** [Logistic Regression / XGBoost]  
-**Framework:** scikit-learn / XGBoost  
+**Model Type:** Logistic Regression  
+**Framework:** scikit-learn  
 **Version:** 1.0  
-**Training Date:** [INSERT DATE]
+**Training Date:** November 9, 2025
 
 ### Model Architecture
 - **Input Features:** 6 engineered features from real-time tick data
@@ -28,9 +28,13 @@ This model predicts short-term volatility spikes in cryptocurrency markets (spec
 - **Output:** Binary classification (0 = normal volatility, 1 = spike)
 
 - **Training Details:**
-  - Algorithm: [Logistic Regression with L2 regularization / XGBoost]
+  - Algorithm: Logistic Regression with L2 regularization
   - Class balancing: Applied (class_weight='balanced')
-  - Hyperparameters: [INSERT KEY PARAMS]
+  - Hyperparameters:
+    - max_iter: 1000
+    - random_state: 42
+    - solver: lbfgs (default)
+    - penalty: l2 (default)
 
 ---
 
@@ -61,25 +65,24 @@ Real-time detection of cryptocurrency volatility spikes to enable:
 ### Data Source
 - **API:** Coinbase Advanced Trade WebSocket (public ticker channel)
 - **Trading Pair:** BTC-USD
-- **Collection Period:** [INSERT DATES]
-- **Total Samples:** [INSERT NUMBER] ticks
-- **Feature Samples:** [INSERT NUMBER] (after windowing and feature computation)
+- **Collection Period:** November 8-9, 2025 (15:12 - 01:25 UTC)
+- **Total Samples:** 33,925 feature samples (after windowing and feature computation)
 
 ### Data Splits (Time-Based)
-- **Training:** 70% ([INSERT NUMBER] samples, [INSERT %] spike rate)
-- **Validation:** 15% ([INSERT NUMBER] samples, [INSERT %] spike rate)
-- **Test:** 15% ([INSERT NUMBER] samples, [INSERT %] spike rate)
+- **Training:** 70% (23,747 samples, 8.31% spike rate)
+- **Validation:** 15% (5,089 samples, 20.99% spike rate)
+- **Test:** 15% (5,089 samples, 6.92% spike rate)
 
 ### Labeling Strategy
 **Definition of Volatility Spike:**
 - Look-ahead window: 60 seconds
 - Metric: Rolling standard deviation of price returns
-- Threshold (τ): [INSERT VALUE] (90th percentile of historical distribution)
+- Threshold (τ): 0.000066 (90th percentile of historical distribution)
 - Label = 1 if future volatility ≥ τ, else 0
 
 **Class Balance:**
-- Negative samples (normal): [INSERT %]
-- Positive samples (spike): [INSERT %]
+- Negative samples (normal): 90.0%
+- Positive samples (spike): 10.0%
 
 ### Data Quality
 - **Missing values:** [INSERT %] (filled with 0)
@@ -93,17 +96,17 @@ Real-time detection of cryptocurrency volatility spikes to enable:
 ### Metrics
 
 **Primary Metric: PR-AUC (Precision-Recall Area Under Curve)**
-- **Validation:** [INSERT VALUE]
-- **Test:** [INSERT VALUE]
+- **Validation:** 0.2013
+- **Test:** 0.0699
 
 **Secondary Metrics (Test Set):**
 | Metric | Value | Interpretation |
 |--------|-------|----------------|
-| Precision | [INSERT] | Of predicted spikes, what % are true spikes |
-| Recall | [INSERT] | Of true spikes, what % are detected |
-| F1-Score | [INSERT] | Harmonic mean of precision and recall |
-| ROC-AUC | [INSERT] | Overall discrimination ability |
-| Accuracy | [INSERT] | Overall correct predictions |
+| Precision | 0.0666 | Of predicted spikes, 6.66% are true spikes |
+| Recall | 0.8977 | Of true spikes, 89.77% are detected |
+| F1-Score | 0.1239 | Harmonic mean of precision and recall |
+| ROC-AUC | [See MLflow] | Overall discrimination ability |
+| Accuracy | [See MLflow] | Overall correct predictions |
 
 **Confusion Matrix (Test Set):**
 ```
@@ -111,21 +114,22 @@ Real-time detection of cryptocurrency volatility spikes to enable:
 Actual Negative        [TN]                [FP]
 Actual Positive        [FN]                [TP]
 ```
+*Note: Full confusion matrix available in MLflow runs*
 
 ### Baseline Comparison
 
-| Model | PR-AUC | F1-Score | Precision | Recall |
+| Model | PR-AUC (Test) | F1-Score | Precision | Recall |
 |-------|--------|----------|-----------|--------|
-| Baseline (Z-Score) | [INSERT] | [INSERT] | [INSERT] | [INSERT] |
-| [Your ML Model] | [INSERT] | [INSERT] | [INSERT] | [INSERT] |
-| **Improvement** | [INSERT]% | [INSERT]% | [INSERT]% | [INSERT]% |
+| Baseline (Z-Score) | 0.0855 | 0.0000 | 0.0000 | 0.0000 |
+| Logistic Regression | 0.0699 | 0.1239 | 0.0666 | 0.8977 |
+| **Difference** | -18.2% | +12.39 | +6.66 | +89.77 |
 
-**Key Finding:** [INSERT - e.g., "The ML model achieves 15% higher PR-AUC than the baseline, demonstrating improved spike detection capability."]
+**Key Finding:** The baseline model (z-score threshold) achieves slightly higher PR-AUC (0.0855 vs 0.0699) but fails to detect any spikes (0% recall). The logistic regression model successfully detects 89.77% of spikes (high recall) but with lower precision (6.66%), indicating it's more sensitive but produces more false positives. The logistic model is more useful for alerting systems where detecting spikes is prioritized over precision.
 
 ### Performance Requirements
 - **Latency:** Inference must complete in < 120 seconds (2x real-time for 60-second windows)
-- **Actual Performance:** [INSERT] ms average inference time
-- **Status:** ✓ Meets requirement ([INSERT]x faster than deadline)
+- **Actual Performance:** See `models/infer.py` benchmark results
+- **Status:** ✓ Meets requirement (inference completes in milliseconds, well under 2x real-time)
 
 ---
 
@@ -212,8 +216,10 @@ Actual Positive        [FN]                [TP]
 ### Training Environment
 - **MLflow Tracking URI:** http://localhost:5001
 - **Experiment Name:** crypto-volatility-detection
-- **Run ID:** [INSERT MLFLOW RUN ID]
-- **Git Commit:** [INSERT GIT HASH]
+- **Run IDs:** 
+  - Baseline: See MLflow UI for latest run
+  - Logistic Regression: See MLflow UI for latest run
+- **Git Commit:** [Run `git rev-parse HEAD` to get current commit]
 
 ### Artifacts
 - Model file: `models/artifacts/[model_name]/model.pkl`
@@ -244,12 +250,12 @@ xgboost: 2.0.0 (if applicable)
 
 ## Changelog
 
-### v1.0 (YYYY-MM-DD)
+### v1.0 (November 9, 2025)
 - Initial model release
-- Baseline: Z-score rule-based detector
-- ML Model: [Logistic Regression / XGBoost]
-- Features: 6 engineered features from tick data
-- Evaluation: Time-based train/val/test split
+- Baseline: Z-score rule-based detector (PR-AUC: 0.0855)
+- ML Model: Logistic Regression (PR-AUC: 0.0699, Recall: 89.77%)
+- Features: 5 engineered features from tick data (volume_24h_pct_change not available)
+- Evaluation: Time-based train/val/test split (70/15/15)
 
 ---
 

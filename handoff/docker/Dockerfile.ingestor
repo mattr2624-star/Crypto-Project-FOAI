@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install Debian build deps needed to build some Python wheels (psutil, cryptography, etc.)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential \
+      python3-dev \
+      gcc \
+      libffi-dev \
+      libssl-dev \
+      pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+CMD ["python", "scripts/ws_ingest.py"]

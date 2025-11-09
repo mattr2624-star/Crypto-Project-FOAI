@@ -39,13 +39,13 @@ label = 0  if σ_future < τ   (normal conditions)
 ```
 
 ### Chosen Threshold (τ)
-**Value:** `[INSERT YOUR THRESHOLD FROM EDA]` (e.g., 0.000423)
+**Value:** `0.000066` (from EDA analysis)
 
 **Justification:**
-- Selected at the **[INSERT PERCENTILE]th percentile** (e.g., 90th) of observed future volatility
-- Based on percentile analysis in EDA (see `notebooks/eda.ipynb`)
-- This threshold captures the top [X]% of volatile periods
-- Results in approximately [Y]% positive class (spikes)
+- Selected at the **90th percentile** of observed future volatility
+- Based on percentile analysis in EDA (see `notebooks/eda.ipynb`, Cell 14)
+- This threshold captures the top 10% of volatile periods
+- Results in approximately **10.0%** positive class (spikes)
 
 **Trade-offs:**
 - Higher threshold → fewer false positives, but might miss moderate spikes

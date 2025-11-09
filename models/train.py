@@ -72,13 +72,17 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Extract feature columns and target variable.
     
+    Supports both actual feature names (from featurizer) and expected names
+    (for backward compatibility).
+    
     Args:
         df: Features dataframe
         
     Returns:
         Tuple of (X, y)
     """
-    feature_cols = [
+    # Expected feature names (for backward compatibility)
+    expected_features = [
         'price_return_1min',
         'price_return_5min',
         'price_volatility_5min',
@@ -87,8 +91,31 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
         'volume_24h_pct_change'
     ]
     
+    # Actual feature names from featurizer
+    actual_features = [
+        'return_mean_60s',      # 1-minute return (60s = 1min)
+        'return_mean_300s',     # 5-minute return (300s = 5min)
+        'return_std_300s',      # 5-minute volatility (300s = 5min)
+        'spread',               # bid-ask spread
+        'spread_bps',           # bid-ask spread in basis points
+        # 'volume_24h_pct_change' - not available, will be skipped
+    ]
+    
+    # Try expected names first, then fall back to actual names
+    feature_cols = []
+    for expected, actual in zip(expected_features, actual_features):
+        if expected in df.columns:
+            feature_cols.append(expected)
+        elif actual in df.columns:
+            feature_cols.append(actual)
+        # If neither exists, skip (e.g., volume_24h_pct_change)
+    
     # Use only available columns
     available_cols = [col for col in feature_cols if col in df.columns]
+    
+    if not available_cols:
+        raise ValueError("No matching feature columns found in dataframe. "
+                        f"Available columns: {df.columns.tolist()}")
     
     X = df[available_cols].copy()
     y = df['volatility_spike'].copy()
@@ -186,11 +213,21 @@ def train_baseline(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.Dat
     X_test, y_test = prepare_features(test_df)
     
     # Use only volatility feature for baseline
-    X_train_base = X_train[['price_volatility_5min']]
-    X_val_base = X_val[['price_volatility_5min']]
-    X_test_base = X_test[['price_volatility_5min']]
+    # Support both naming conventions
+    volatility_col = None
+    for col_name in ['price_volatility_5min', 'return_std_300s']:
+        if col_name in X_train.columns:
+            volatility_col = col_name
+            break
     
-    with mlflow.start_run(run_name="baseline_zscore"):
+    if volatility_col is None:
+        raise ValueError("No volatility column found. Expected 'price_volatility_5min' or 'return_std_300s'")
+    
+    X_train_base = X_train[[volatility_col]]
+    X_val_base = X_val[[volatility_col]]
+    X_test_base = X_test[[volatility_col]]
+    
+    with mlflow.start_run(run_name="baseline_zscore") as run:
         # Log parameters
         mlflow.log_param("model_type", "baseline")
         mlflow.log_param("threshold", threshold)
@@ -224,15 +261,41 @@ def train_baseline(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.Dat
         plot_pr_curve(y_test.values, y_test_proba, plots_dir / "pr_curve.png")
         plot_roc_curve(y_test.values, y_test_proba, plots_dir / "roc_curve.png")
         
-        # Log artifacts
-        mlflow.log_artifact(str(plots_dir / "pr_curve.png"))
-        mlflow.log_artifact(str(plots_dir / "roc_curve.png"))
+        # Log artifacts - use fluent API which handles HTTP uploads automatically
+        artifact_files = [
+            ("pr_curve.png", plots_dir / "pr_curve.png"),
+            ("roc_curve.png", plots_dir / "roc_curve.png")
+        ]
+        
+        for artifact_name, artifact_path in artifact_files:
+            try:
+                # Use fluent API - automatically uses HTTP when connected to server
+                mlflow.log_artifact(str(artifact_path))
+            except (OSError, Exception) as e:
+                error_str = str(e)
+                if "Read-only file system" in error_str or "/mlflow" in error_str:
+                    print(f"⚠ Warning: Could not log artifact {artifact_name} to MLflow server")
+                    print(f"   Artifact saved locally at: {artifact_path}")
+                    print(f"   Error: {str(e)[:100]}")
+                else:
+                    raise
         
         # Save model
         model_path = plots_dir / "model.pkl"
         with open(model_path, 'wb') as f:
             pickle.dump(model, f)
-        mlflow.log_artifact(str(model_path))
+        
+        try:
+            # Use fluent API - automatically uses HTTP when connected to server
+            mlflow.log_artifact(str(model_path))
+        except (OSError, Exception) as e:
+            error_str = str(e)
+            if "Read-only file system" in error_str or "/mlflow" in error_str:
+                print(f"⚠ Warning: Could not log model artifact to MLflow server")
+                print(f"   Model saved locally at: {model_path}")
+                print(f"   Error: {str(e)[:100]}")
+            else:
+                raise
         
         print(f"Validation PR-AUC: {val_metrics['pr_auc']:.4f}")
         print(f"Test PR-AUC: {test_metrics['pr_auc']:.4f}")
@@ -303,13 +366,31 @@ def train_logistic_regression(train_df: pd.DataFrame, val_df: pd.DataFrame,
         plt.savefig(plots_dir / "feature_importance.png")
         plt.close()
         
-        # Log artifacts
-        mlflow.log_artifact(str(plots_dir / "pr_curve.png"))
-        mlflow.log_artifact(str(plots_dir / "roc_curve.png"))
-        mlflow.log_artifact(str(plots_dir / "feature_importance.png"))
+        # Log artifacts - handle potential filesystem errors gracefully
+        artifact_files = [
+            ("pr_curve.png", plots_dir / "pr_curve.png"),
+            ("roc_curve.png", plots_dir / "roc_curve.png"),
+            ("feature_importance.png", plots_dir / "feature_importance.png")
+        ]
+        
+        for artifact_name, artifact_path in artifact_files:
+            try:
+                mlflow.log_artifact(str(artifact_path))
+            except OSError as e:
+                if "Read-only file system" in str(e) or "/mlflow" in str(e):
+                    print(f"⚠ Warning: Could not log artifact {artifact_name} to MLflow server")
+                    print(f"   Artifact saved locally at: {artifact_path}")
+                else:
+                    raise
         
         # Log model
-        mlflow.sklearn.log_model(model, "model")
+        try:
+            mlflow.sklearn.log_model(model, "model")
+        except OSError as e:
+            if "Read-only file system" in str(e) or "/mlflow" in str(e):
+                print(f"⚠ Warning: Could not log model to MLflow server")
+            else:
+                raise
         
         # Save locally
         model_path = plots_dir / "model.pkl"
@@ -410,13 +491,31 @@ def train_xgboost(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.Data
         plt.savefig(plots_dir / "feature_importance.png")
         plt.close()
         
-        # Log artifacts
-        mlflow.log_artifact(str(plots_dir / "pr_curve.png"))
-        mlflow.log_artifact(str(plots_dir / "roc_curve.png"))
-        mlflow.log_artifact(str(plots_dir / "feature_importance.png"))
+        # Log artifacts - handle potential filesystem errors gracefully
+        artifact_files = [
+            ("pr_curve.png", plots_dir / "pr_curve.png"),
+            ("roc_curve.png", plots_dir / "roc_curve.png"),
+            ("feature_importance.png", plots_dir / "feature_importance.png")
+        ]
+        
+        for artifact_name, artifact_path in artifact_files:
+            try:
+                mlflow.log_artifact(str(artifact_path))
+            except OSError as e:
+                if "Read-only file system" in str(e) or "/mlflow" in str(e):
+                    print(f"⚠ Warning: Could not log artifact {artifact_name} to MLflow server")
+                    print(f"   Artifact saved locally at: {artifact_path}")
+                else:
+                    raise
         
         # Log model
-        mlflow.xgboost.log_model(model, "model")
+        try:
+            mlflow.xgboost.log_model(model, "model")
+        except OSError as e:
+            if "Read-only file system" in str(e) or "/mlflow" in str(e):
+                print(f"⚠ Warning: Could not log model to MLflow server")
+            else:
+                raise
         
         # Save locally
         model_path = plots_dir / "model.pkl"
@@ -431,7 +530,7 @@ def train_xgboost(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.Data
 
 def main():
     parser = argparse.ArgumentParser(description="Train volatility detection models")
-    parser.add_argument("--features", default="data/processed/features.parquet",
+    parser.add_argument("--features", default="data/processed/features_labeled.parquet",
                        help="Path to features parquet file")
     parser.add_argument("--models", nargs='+', default=["baseline", "logistic"],
                        choices=["baseline", "logistic", "xgboost"],
@@ -442,7 +541,51 @@ def main():
     args = parser.parse_args()
     
     # Set MLflow tracking
-    mlflow.set_tracking_uri(args.mlflow_uri)
+    # If server URI is provided, try to use it; otherwise use local directory
+    if args.mlflow_uri.startswith('http'):
+        # Try to connect to MLflow server
+        try:
+            mlflow.set_tracking_uri(args.mlflow_uri)
+            # Test connection with a simple health check or experiment access
+            from mlflow.tracking import MlflowClient
+            import urllib.request
+            # Quick HTTP health check
+            health_url = f"{args.mlflow_uri.rstrip('/')}/health"
+            try:
+                urllib.request.urlopen(health_url, timeout=2)
+            except:
+                raise ConnectionError("MLflow server health check failed")
+            # Try to access MLflow client (this will fail if server is truly not accessible)
+            client = MlflowClient(tracking_uri=args.mlflow_uri)
+            _ = client._tracking_client  # Access internal client to verify connection
+            
+            # Verify artifact URI is set correctly (should use server's artifact store)
+            # MLflow should automatically use the server's artifact root when connected
+            print(f"✓ Connected to MLflow server at {args.mlflow_uri}")
+            
+            # Ensure we're using the server's artifact store, not a local path
+            # This prevents MLflow from trying to write to /mlflow locally
+            import os
+            # Clear any local MLFLOW_ARTIFACT_URI environment variable that might interfere
+            if 'MLFLOW_ARTIFACT_URI' in os.environ:
+                artifact_uri = os.environ['MLFLOW_ARTIFACT_URI']
+                if artifact_uri.startswith('/mlflow'):
+                    del os.environ['MLFLOW_ARTIFACT_URI']
+                    print(f"   Cleared local artifact URI: {artifact_uri}")
+        except Exception as e:
+            # Server not accessible, use local directory
+            print(f"⚠ Warning: MLflow server at {args.mlflow_uri} not accessible")
+            print(f"   Reason: {str(e)[:80]}")
+            print("   Falling back to local MLflow tracking (./mlruns/)")
+            # Use local directory instead
+            local_mlflow_path = Path("mlruns").absolute()
+            local_mlflow_path.mkdir(exist_ok=True, parents=True)
+            mlflow.set_tracking_uri(f"file://{local_mlflow_path}")
+            print(f"✓ Using local MLflow tracking at: {local_mlflow_path}")
+    else:
+        # Already a file path
+        mlflow.set_tracking_uri(args.mlflow_uri)
+    
     mlflow.set_experiment("crypto-volatility-detection")
     
     # Load and split data
@@ -477,8 +620,13 @@ def main():
             print(f"{model_name:<20} {m['pr_auc']:<10.4f} {m['f1_score']:<10.4f} "
                   f"{m['precision']:<10.4f} {m['recall']:<10.4f}")
     
-    print(f"\nAll models logged to MLflow: {args.mlflow_uri}")
-    print("View results at: http://localhost:5001")
+    # Get the actual tracking URI being used
+    actual_uri = mlflow.get_tracking_uri()
+    print(f"\nAll models logged to MLflow: {actual_uri}")
+    if actual_uri.startswith('http'):
+        print(f"View results at: {actual_uri}")
+    else:
+        print(f"View results with: mlflow ui --backend-store-uri {actual_uri}")
 
 
 if __name__ == "__main__":

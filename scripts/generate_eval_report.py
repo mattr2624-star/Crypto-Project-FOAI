@@ -24,6 +24,14 @@ from sklearn.metrics import (
 
 def load_model_results(artifacts_dir: Path) -> dict:
     """Load all model artifacts and results."""
+    import sys
+    from pathlib import Path
+    
+    # Add models directory to path for imports
+    models_dir = Path(__file__).parent.parent / "models"
+    if str(models_dir) not in sys.path:
+        sys.path.insert(0, str(models_dir))
+    
     results = {}
     
     for model_dir in artifacts_dir.iterdir():
@@ -36,13 +44,17 @@ def load_model_results(artifacts_dir: Path) -> dict:
         if not model_path.exists():
             continue
         
-        with open(model_path, 'rb') as f:
-            model = pickle.load(f)
-        
-        results[model_name] = {
-            'model': model,
-            'path': model_dir
-        }
+        try:
+            with open(model_path, 'rb') as f:
+                model = pickle.load(f)
+            
+            results[model_name] = {
+                'model': model,
+                'path': model_dir
+            }
+        except Exception as e:
+            print(f"Warning: Could not load model from {model_path}: {e}")
+            continue
     
     return results
 
@@ -209,49 +221,63 @@ def create_feature_importance_page(pdf, models_dict: dict):
     if n_plots == 0:
         return
     
+    # Create figure and subplots - handle axes properly
     cols = 2
     rows = (n_plots + 1) // 2
-    fig, axes = plt.subplots(rows, cols, figsize=(11, 4 * rows))
+    fig = plt.figure(figsize=(11, 4 * rows))
     fig.suptitle('Feature Importance', fontsize=16, fontweight='bold')
-    
-    if n_plots == 1:
-        axes = [axes]
-    else:
-        axes = axes.flatten()
     
     idx = 0
     for model_name, data in models_dict.items():
         model = data['model']
         
+        # Create subplot at correct position
+        ax = fig.add_subplot(rows, cols, idx + 1)
+        
         if hasattr(model, 'coef_'):
-            # Logistic Regression
-            feature_names = ['price_return_1min', 'price_return_5min', 
-                           'price_volatility_5min', 'bid_ask_spread',
-                           'bid_ask_spread_bps', 'volume_24h_pct_change']
+            # Logistic Regression - use actual feature names
             importance = model.coef_[0]
+            # Get feature names from the model's training data if available
+            if hasattr(model, 'feature_names_in_'):
+                feature_names = list(model.feature_names_in_)
+            else:
+                feature_names = ['price_return_1min', 'price_return_5min', 
+                               'price_volatility_5min', 'bid_ask_spread',
+                               'bid_ask_spread_bps']
             
             sorted_idx = np.argsort(np.abs(importance))
-            axes[idx].barh(np.array(feature_names)[sorted_idx], importance[sorted_idx])
-            axes[idx].set_title(f'{model_name} (Coefficients)', fontweight='bold')
-            axes[idx].set_xlabel('Coefficient Value')
+            feature_names_arr = np.array(feature_names)[sorted_idx]
+            importance_sorted = importance[sorted_idx]
+            ax.barh(feature_names_arr, importance_sorted)
+            ax.set_title(f'{model_name} (Coefficients)', fontweight='bold')
+            ax.set_xlabel('Coefficient Value')
             idx += 1
             
         elif hasattr(model, 'feature_importances_'):
-            # XGBoost
-            feature_names = ['price_return_1min', 'price_return_5min', 
-                           'price_volatility_5min', 'bid_ask_spread',
-                           'bid_ask_spread_bps', 'volume_24h_pct_change']
+            # XGBoost - use actual feature names from model
             importance = model.feature_importances_
+            # Get feature names from the model's training data if available
+            # Otherwise use default names
+            if hasattr(model, 'feature_names_in_'):
+                feature_names = list(model.feature_names_in_)
+            else:
+                feature_names = ['price_return_1min', 'price_return_5min', 
+                               'price_volatility_5min', 'bid_ask_spread',
+                               'bid_ask_spread_bps']
             
             sorted_idx = np.argsort(importance)
-            axes[idx].barh(np.array(feature_names)[sorted_idx], importance[sorted_idx])
-            axes[idx].set_title(f'{model_name} (Importance)', fontweight='bold')
-            axes[idx].set_xlabel('Feature Importance')
+            feature_names_arr = np.array(feature_names)[sorted_idx]
+            importance_sorted = importance[sorted_idx]
+            ax.barh(feature_names_arr, importance_sorted)
+            ax.set_title(f'{model_name} (Importance)', fontweight='bold')
+            ax.set_xlabel('Feature Importance')
             idx += 1
     
     # Hide unused subplots
-    for i in range(idx, len(axes)):
-        axes[i].axis('off')
+    total_subplots = rows * cols
+    for i in range(idx, total_subplots):
+        ax_unused = fig.add_subplot(rows, cols, i + 1)
+        ax_unused.axis('off')
     
     plt.tight_layout()
     pdf.savefig(fig, bbox_inches='tight')
@@ -261,6 +287,13 @@ def create_feature_importance_page(pdf, models_dict: dict):
 def generate_report(features_path: str, artifacts_dir: str, output_path: str):
     """Generate comprehensive evaluation report."""
     print(f"Generating evaluation report...")
+    
+    # Import prepare_features from train.py
+    import sys
+    models_dir = Path(__file__).parent.parent / "models"
+    if str(models_dir) not in sys.path:
+        sys.path.insert(0, str(models_dir))
+    from train import prepare_features
     
     features_path = Path(features_path)
     artifacts_dir = Path(artifacts_dir)
@@ -282,11 +315,8 @@ def generate_report(features_path: str, artifacts_dir: str, output_path: str):
         print("No models found in artifacts directory")
         return
     
-    # Prepare test data
-    feature_cols = [col for col in test_df.columns 
-                   if col not in ['timestamp', 'volatility_spike', 'product_id']]
-    X_test = test_df[feature_cols].fillna(0)
-    y_test = test_df['volatility_spike']
+    # Prepare test data using same logic as training
+    X_test, y_test = prepare_features(test_df)
     
     # Evaluate all models
     test_results = {}
@@ -297,8 +327,19 @@ def generate_report(features_path: str, artifacts_dir: str, output_path: str):
         
         # Make predictions
         if hasattr(model, 'predict'):
+            # Baseline model needs only volatility feature
             if model_name == 'baseline':
-                X_model = X_test[['price_volatility_5min']]
+                # Find volatility column (supports both naming conventions)
+                volatility_col = None
+                for col_name in ['price_volatility_5min', 'return_std_300s']:
+                    if col_name in X_test.columns:
+                        volatility_col = col_name
+                        break
+                if volatility_col:
+                    X_model = X_test[[volatility_col]]
+                else:
+                    print(f"Warning: Could not find volatility column for baseline model")
+                    continue
             else:
                 X_model = X_test
             

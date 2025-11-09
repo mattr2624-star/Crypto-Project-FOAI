@@ -32,13 +32,16 @@ services:
     ports:
       - "5001:5000"
     volumes:
-      - mlflow_data:/mlflow
+      # Mount local directory for MLflow data and artifacts
+      - ./mlflow_data:/mlflow
     command: >
       mlflow server
       --backend-store-uri sqlite:///mlflow/mlflow.db
-      --default-artifact-root /mlflow/artifacts
+      --artifacts-destination /mlflow/artifacts
+      --default-artifact-root http://localhost:5001/api/2.0/mlflow-artifacts/artifacts/experiments
       --host 0.0.0.0
       --port 5000
+      --serve-artifacts
     networks:
       - crypto-network
 
@@ -46,5 +49,5 @@ networks:
   crypto-network:
     driver: bridge
 
-volumes:
-  mlflow_data:
+# Note: mlflow_data is now a bind mount (./mlflow_data) instead of a named volume
+# This allows the host to access artifacts directly

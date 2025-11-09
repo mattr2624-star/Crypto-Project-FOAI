@@ -28,20 +28,41 @@ class BaselineVolatilityDetector:
         self.threshold = threshold
         self.mean_ = None
         self.std_ = None
+        self.volatility_col_ = None  # Store the column name found
+        
+    def _get_volatility_column(self, X: pd.DataFrame) -> str:
+        """
+        Find the volatility column name, supporting both naming conventions.
+        
+        Args:
+            X: Features dataframe
+            
+        Returns:
+            Column name for volatility feature
+        """
+        # Try expected name first, then actual name
+        for col_name in ['price_volatility_5min', 'return_std_300s']:
+            if col_name in X.columns:
+                return col_name
+        
+        raise ValueError(
+            "X must contain 'price_volatility_5min' or 'return_std_300s' column. "
+            f"Available columns: {X.columns.tolist()}"
+        )
         
     def fit(self, X: pd.DataFrame, y: pd.Series = None):
         """
         Compute historical statistics for z-score calculation.
         
         Args:
-            X: Features dataframe with 'price_volatility_5min' column
+            X: Features dataframe with volatility column ('price_volatility_5min' or 'return_std_300s')
             y: Target labels (not used for baseline, but kept for API consistency)
         """
-        if 'price_volatility_5min' not in X.columns:
-            raise ValueError("X must contain 'price_volatility_5min' column")
+        # Find and store the volatility column name
+        self.volatility_col_ = self._get_volatility_column(X)
         
         # Compute mean and std from training data
-        volatility = X['price_volatility_5min'].dropna()
+        volatility = X[self.volatility_col_].dropna()
         self.mean_ = volatility.mean()
         self.std_ = volatility.std()
         
@@ -60,7 +81,11 @@ class BaselineVolatilityDetector:
         if self.mean_ is None or self.std_ is None:
             raise ValueError("Model must be fitted before prediction")
         
-        volatility = X['price_volatility_5min'].fillna(self.mean_)
+        # Use stored column name, or find it if not set (for backward compatibility)
+        if self.volatility_col_ is None:
+            self.volatility_col_ = self._get_volatility_column(X)
+        
+        volatility = X[self.volatility_col_].fillna(self.mean_)
         
         # Compute z-scores
         z_scores = (volatility - self.mean_) / (self.std_ + 1e-8)
@@ -83,7 +108,11 @@ class BaselineVolatilityDetector:
         if self.mean_ is None or self.std_ is None:
             raise ValueError("Model must be fitted before prediction")
         
-        volatility = X['price_volatility_5min'].fillna(self.mean_)
+        # Use stored column name, or find it if not set (for backward compatibility)
+        if self.volatility_col_ is None:
+            self.volatility_col_ = self._get_volatility_column(X)
+        
+        volatility = X[self.volatility_col_].fillna(self.mean_)
         z_scores = (volatility - self.mean_) / (self.std_ + 1e-8)
         
         # Convert z-scores to pseudo-probabilities using sigmoid

@@ -7,10 +7,22 @@ import argparse
 import pickle
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import pandas as pd
 import numpy as np
+
+# Import feature preparation logic from train.py for consistency
+# Handle imports for both module and script execution
+import sys
+from pathlib import Path
+
+# Add models directory to path to allow importing train module
+models_dir = Path(__file__).parent
+if str(models_dir) not in sys.path:
+    sys.path.insert(0, str(models_dir))
+
+from train import prepare_features
 
 
 class VolatilityPredictor:
@@ -107,6 +119,27 @@ class VolatilityPredictor:
         }
 
 
+def prepare_features_for_inference(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Prepare features for inference using the same logic as training.
+    Supports both naming conventions (expected and actual feature names).
+    
+    Args:
+        df: DataFrame with feature columns
+        
+    Returns:
+        DataFrame with prepared features (same columns as used in training)
+    """
+    # Use the same prepare_features function from train.py
+    # If volatility_spike exists, use it (for evaluation), otherwise create dummy
+    if 'volatility_spike' not in df.columns:
+        df = df.copy()
+        df['volatility_spike'] = 0  # Dummy column, won't be used
+    
+    X, _ = prepare_features(df)
+    return X
+
+
 def benchmark_inference(model_path: str, features_path: str, n_samples: int = 1000):
     """
     Benchmark inference performance to verify < 2x real-time requirement.
@@ -131,9 +164,9 @@ def benchmark_inference(model_path: str, features_path: str, n_samples: int = 10
     if len(df) > n_samples:
         df = df.sample(n=n_samples, random_state=42)
     
-    # Prepare features
-    feature_cols = [col for col in df.columns if col not in ['timestamp', 'volatility_spike', 'product_id']]
-    X = df[feature_cols].fillna(0)
+    # Prepare features using the same logic as training
+    X = prepare_features_for_inference(df)
+    print(f"Using {len(X.columns)} features: {list(X.columns)}")
     
     # Single prediction benchmark
     print("Single prediction test:")
@@ -191,8 +224,9 @@ def run_live_inference(model_path: str, features_path: str):
     df = pd.read_parquet(features_path)
     df = df.sort_values('timestamp')
     
-    # Prepare features
-    feature_cols = [col for col in df.columns if col not in ['timestamp', 'volatility_spike', 'product_id']]
+    # Prepare features using the same logic as training
+    X = prepare_features_for_inference(df)
+    print(f"Using {len(X.columns)} features: {list(X.columns)}\n")
     
     print("Streaming predictions (showing first 10):")
     print(f"{'Timestamp':<25} {'Prediction':<12} {'Probability':<12} {'Alert':<8} {'Time (ms)':<10}")
@@ -202,7 +236,9 @@ def run_live_inference(model_path: str, features_path: str):
         if i >= 10:  # Show first 10
             break
         
-        features = pd.DataFrame([row[feature_cols]]).fillna(0)
+        # Get features for this row using the same column selection
+        row_df = df.iloc[[i]]
+        features = prepare_features_for_inference(row_df)
         result = predictor.predict(features)
         
         timestamp = row['timestamp']
