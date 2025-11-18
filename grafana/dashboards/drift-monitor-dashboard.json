@@ -1,0 +1,57 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "title": "Crypto Drift Monitor Dashboard",
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Current Drift Status",
+      "id": 1,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "crypto_data_drift_detected" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Drift Share Over Time",
+      "id": 2,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "crypto_data_drift_share" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Last Drift Check Timestamp",
+      "id": 3,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "crypto_data_drift_last_run_ts" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Moving Average Drift Trend (1h)",
+      "id": 4,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "avg_over_time(crypto_data_drift_share[1h])"
+        }
+      ]
+    }
+  ]
+}

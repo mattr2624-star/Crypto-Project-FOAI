@@ -1,0 +1,55 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # -----------------------------
+  # Prometheus itself
+  # -----------------------------
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["prometheus:9090"]
+        labels:
+          app: prom
+
+  # -----------------------------
+  # Model Server (FastAPI)
+  # /metrics → Prometheus format
+  # -----------------------------
+  - job_name: "model_server"
+    static_configs:
+      - targets: ["model-server:8000"]
+        labels:
+          app: model_server
+          service: api
+
+  # -----------------------------
+  # Kafka Exporter (consumer lag, broker metrics)
+  # -----------------------------
+  - job_name: "kafka_exporter"
+    static_configs:
+      - targets: ["kafka-exporter:9308"]
+        labels:
+          app: kafka_exporter
+          service: kafka
+
+  # -----------------------------
+  # Drift Monitor (Evidently)
+  # Exposes /metrics as well
+  # -----------------------------
+  - job_name: "drift_monitor"
+    static_configs:
+      - targets: ["drift-monitor:9001"]
+        labels:
+          app: drift_monitor
+          service: drift
+
+  # -----------------------------
+  # MLflow server monitoring
+  # -----------------------------
+  - job_name: "mlflow"
+    static_configs:
+      - targets: ["mlflow:5000"]
+        labels:
+          app: mlflow
+          service: tracking

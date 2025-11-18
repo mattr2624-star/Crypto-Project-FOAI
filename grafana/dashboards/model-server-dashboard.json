@@ -1,0 +1,42 @@
+{
+  "title": "Crypto Model Server Performance",
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total Prediction Requests",
+      "id": 1,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "model_requests_total" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Total Retrains",
+      "id": 2,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "model_retrains_total" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Predictions Per Second",
+      "id": 3,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "rate(model_requests_total[1m])" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Retrain Events Over Time",
+      "id": 4,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "increase(model_retrains_total[24h])" }
+      ]
+    }
+  ]
+}

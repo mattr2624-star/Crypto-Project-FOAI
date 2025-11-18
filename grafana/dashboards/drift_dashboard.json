@@ -1,0 +1,14 @@
+{
+  "title": "Model Drift Dashboard",
+  "panels": [
+    {
+      "title": "Drift Alerts",
+      "type": "table",
+      "targets": [
+        { "expr": "drift_alerts_total" }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

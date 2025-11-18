@@ -1,0 +1,14 @@
+{
+  "title": "Kafka Dashboard",
+  "panels": [
+    {
+      "title": "Kafka Consumer Lag",
+      "type": "graph",
+      "targets": [
+        { "expr": "kafka_consumergroup_lag" }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

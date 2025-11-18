@@ -1,0 +1,21 @@
+{
+  "title": "Model Server Dashboard",
+  "panels": [
+    {
+      "title": "Prediction Requests",
+      "type": "graph",
+      "targets": [
+        { "expr": "model_requests_total", "legendFormat": "requests" }
+      ]
+    },
+    {
+      "title": "Model Retrains",
+      "type": "graph",
+      "targets": [
+        { "expr": "model_retrains_total", "legendFormat": "retrain events" }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+kafka-python
+prometheus_client
+joblib
+mlflow
+evidently==0.4.33
+pandas==2.2.2
+scikit-learn==1.4.2

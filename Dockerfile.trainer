@@ -1,0 +1,17 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Copy shared root requirements so trainer uses same versions
+COPY requirements.txt /app/requirements.txt
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the trainer package
+COPY cryptotrainer /app/cryptotrainer
+
+# Ensure it is treated as a package
+RUN touch /app/cryptotrainer/__init__.py
+
+# Run trainer
+CMD ["python", "-m", "cryptotrainer.trainer"]

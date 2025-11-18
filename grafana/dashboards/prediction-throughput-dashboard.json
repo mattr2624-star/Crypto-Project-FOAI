@@ -1,0 +1,24 @@
+{
+  "title": "Prediction Throughput Dashboard",
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Predictions Per Minute",
+      "id": 1,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "rate(model_requests_total[1m]) * 60" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Predictions (Rolling 1h Window)",
+      "id": 2,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "sum_over_time(model_requests_total[1h])" }
+      ]
+    }
+  ]
+}

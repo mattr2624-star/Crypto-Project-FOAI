@@ -1,0 +1,1 @@
+# crypto-consumer package initialization

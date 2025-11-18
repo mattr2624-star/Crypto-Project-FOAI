@@ -1,0 +1,18 @@
+# Base image
+FROM python:3.10-slim
+
+# Install dependencies
+RUN pip install --no-cache-dir kafka-python websocket-client
+
+# Set working directory
+WORKDIR /app
+
+# Copy scripts
+COPY ../scripts/ws_ingest.py ./scripts/ws_ingest.py
+
+# Set environment variables
+ENV KAFKA_BROKER=cp-kafka-1:9092
+ENV KAFKA_TOPIC=ticks.raw
+
+# Command
+CMD ["python", "./scripts/ws_ingest.py"]

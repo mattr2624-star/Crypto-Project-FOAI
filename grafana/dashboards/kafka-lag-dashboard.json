@@ -1,0 +1,42 @@
+{
+  "title": "Kafka Lag and Broker Health",
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Consumer Group Lag",
+      "id": 1,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "kafka_consumergroup_lag" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Partition Latest Offset",
+      "id": 2,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "kafka_topic_partition_current_offset" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Partition Oldest Offset",
+      "id": 3,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "kafka_topic_partition_oldest_offset" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Kafka Broker Up",
+      "id": 4,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "up{job=\"kafka_exporter\"}" }
+      ]
+    }
+  ]
+}
