@@ -1,0 +1,71 @@
+############################
+# Python & Virtual Envs
+############################
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+
+############################
+# IDE / Editor
+############################
+.vscode/
+.idea/
+.settings/
+
+############################
+# Data & Reports
+############################
+data/
+reports/
+logs/
+
+# Allow example/sample demo files
+!data/*.example
+!reports/*.example
+
+############################
+# Docker & Build
+############################
+*.log
+*.pid
+*.sock
+*.db
+tmp/
+dist/
+build/
+docker-compose.override.yml
+
+############################
+# ML Artifacts
+############################
+models/*.pkl
+models/*.joblib
+models/*.bin
+models/*.pt
+models/*.onnx
+
+# Allow sample models
+!models/*.example
+
+############################
+# Environment & Secrets
+############################
+.env
+.env.*
+!*.example
+
+############################
+# Jupyter
+############################
+.ipynb_checkpoints/
+*.ipynb
+
+############################
+# OS Files
+############################
+.DS_Store
+Thumbs.db

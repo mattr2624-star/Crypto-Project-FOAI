@@ -1,23 +1,126 @@
-# Crypto Pipeline (cp)
+🚀 Real-Time Crypto Volatility Detection — Thin Slice Prototype (Week 4)
 
-This is a cryptocurrency data pipeline with Kafka streaming, MLflow tracking, and training modules.
+A real-time AI service that detects short-horizon volatility spikes in Bitcoin using streaming market data, a Gradient Boosting classifier, and MLOps tooling (FastAPI, Kafka, MLflow, Grafana, Prometheus, Evidently).
 
-## Structure
-- `crypto-trainer/`: Training logic
-- `crypto-producer/`: Kafka producer
-- `crypto-consumer/`: Kafka consumer
-- `crypto-stream/`: Streaming logic
-- `mlflow/`: MLflow server Docker setup
+Status: Working Thin Slice (Replay Mode) — /predict live, services deployed via Docker Compose.
 
-curl -X POST "http://localhost:8000/predict" \
+📌 Architecture Overview
+┌────────────┐      ┌─────────────┐      ┌─────────┐      ┌──────────────┐
+│ Coinbase   │◄────►│ Kafka       │◄────►│ FastAPI │◄────►│ Prometheus    │
+│ (Live/repl)│      │ (Streaming) │      │ Model   │      │ Grafana       │
+└────────────┘      └─────────────┘      └─────────┘      └──────────────┘
+                                              │
+                                              ▼
+                                        MLflow Registry
+
+
+→ In Week 4, we run in replay mode using a local pkl model instead of the Registry.
+
+🛠 Run the System (One Command)
+docker compose up -d
+
+
+⏱ Starts:
+
+Kafka + Zookeeper
+
+Model Server (FastAPI)
+
+MLflow Tracking Server
+
+Prometheus + Grafana
+
+Drift Monitor container (future use)
+
+🧪 Test the Model API
+curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
-  -d '{
-    "rows": [
-      {
-        "midprice": 100000.0,
-        "spread": 1.2,
-        "trade_intensity": 15,
-        "volatility_30s": 0.0003
-      }
-    ]
-  }'
+  -d '{"rows":[{"midprice":68000.5,"spread":1.2,"trade_intensity":14,"volatility_30s":0.02}]}'
+
+
+Example Response:
+
+{
+  "volatility_score": 0.93,
+  "model_name": "crypto-vol-ml",
+  "model_version": "latest",
+  "model_variant": "ml",
+  "latency_ms": 0.0
+}
+
+Health Check
+curl http://localhost:8000/health
+
+Model Metadata
+curl http://localhost:8000/version
+
+📈 Monitoring & Model Tracking
+Tool	URL	Purpose
+MLflow	http://localhost:5000
+	Track experiments + artifacts
+Grafana	http://localhost:3000
+	Model dashboards & latency (future)
+Prometheus	http://localhost:9090
+	Metrics scraped from API
+FastAPI Docs	http://localhost:8000/docs
+	Live schema & testing
+
+Default Grafana credentials: admin / admin
+
+📦 Model Artifact
+
+The thin slice uses a locally mounted pickle:
+
+/app/models/gbm_volatility.pkl
+
+
+This file contains:
+
+trained classifier
+
+feature names
+
+volatility spike threshold
+
+💡 Later weeks will migrate this to MLflow Model Registry and introduce MODEL_VARIANT rollback.
+
+📁 Key Repository Files
+File	Purpose
+docker-compose.yaml	Orchestrates all services
+server/model_loader.py	Loads + aligns features from pickle
+server/model_server.py	FastAPI inference app
+team_charter.md	Roles & responsibilities
+selection_rationale.md	Why we chose this model
+Architecture Diagram.png	System flow
+🎯 Next Steps (Week 5 Preview)
+
+Upcoming MLOps enhancements:
+
+GitHub Actions CI (lint + replay test)
+
+Load testing (100 request burst)
+
+Retry & reconnection logic for Kafka
+
+.env.example + secret sanitization
+
+Basic observability /metrics endpoint
+
+Ready when you are: Say “Begin Week 5 CI Setup”
+
+👥 Team Roles
+
+Defined in team_charter.md. Each member owns one major subsystem:
+📌 Kafka • FastAPI • Models • Monitoring • Deployment
+
+📄 Model Selection Strategy
+
+Gradient Boosting chosen for:
+
+superior PR-AUC on tail volatility events
+
+robust to outliers
+
+interpretable feature importances
+
+Full reasoning in: selection_rationale.md

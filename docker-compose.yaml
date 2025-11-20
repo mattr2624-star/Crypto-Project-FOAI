@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
 
   # --------------------------------------
@@ -70,10 +68,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      MODEL_PATH: /app/models/gbm_volatility.pkl
-      MODEL_VARIANT: "ml"
-      KAFKA_BROKER: kafka:9092
-      KAFKA_TOPIC: model-events
+      MODEL_VARIANT: "ml"               # ml | baseline | student1 | student2
+      MLFLOW_TRACKING_URI: http://mlflow:5000
     volumes:
       - ./models:/app/models
       - ./reports:/app/reports

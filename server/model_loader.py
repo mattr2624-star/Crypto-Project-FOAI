@@ -1,48 +1,75 @@
-import mlflow.pyfunc
+import numpy as np
+import pandas as pd
+import joblib
 from functools import lru_cache
 from .config import get_settings
 
+
 class LoadedModel:
-    def __init__(self, name: str, version: str, variant: str, model):
+    def __init__(self, name, version, variant, model, feature_cols, threshold=None):
         self.name = name
         self.version = version
         self.variant = variant
         self.model = model
+        self.feature_cols = feature_cols
+        self.threshold = threshold  # For later drift or spike classification use
 
-    def predict(self, payload: dict):
-        """Run prediction on a single JSON dict."""
-        prediction = self.model.predict([payload])[0]
+    def _align_features(self, features: dict) -> pd.DataFrame:
+        df = pd.DataFrame([features])
 
-        return {
-            "volatility_score": float(prediction),
-            "model_name": self.name,
-            "model_version": self.version,
-            "model_variant": self.variant,
-        }
+        # Add missing columns
+        for col in self.feature_cols:
+            if col not in df.columns:
+                df[col] = 0
+
+        # Keep order, remove infinities / NaNs
+        df = df[self.feature_cols].replace([np.inf, -np.inf], 0).fillna(0)
+        return df
+
+    def predict(self, row: dict) -> float:
+        aligned = self._align_features(row)
+        return float(self.model.predict_proba(aligned)[0][1])
 
 
 @lru_cache
 def load_model(variant: str) -> LoadedModel:
-    """Load an MLflow model once and cache it."""
     settings = get_settings()
 
-    if variant == "ml":
-        uri = settings.model_uri_ml
-    elif variant == "baseline":
-        uri = settings.model_uri_baseline
-    elif variant == "student1":
-        uri = settings.model_uri_student1
-    elif variant == "student2":
-        uri = settings.model_uri_student2
-    else:
+    uri_map = {
+        "ml": settings.model_uri_ml,
+        "baseline": settings.model_uri_baseline,
+        "student1": settings.model_uri_student1,
+        "student2": settings.model_uri_student2,
+    }
+
+    if variant not in uri_map:
         raise ValueError(f"Unknown model variant: {variant}")
 
-    mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
-    model = mlflow.pyfunc.load_model(uri)
+    path = uri_map[variant].replace("file:", "").replace("file://", "")
+    raw = joblib.load(path)
+
+    if not isinstance(raw, dict):
+        raise RuntimeError("Expected a dict-wrapped model with keys: model, feature_cols, high_vol_threshold")
+
+    model = raw.get("model", None)
+    feature_cols = raw.get("feature_cols", None)
+    threshold = raw.get("high_vol_threshold", None)
+
+    if model is None or not hasattr(model, "predict_proba"):
+        raise RuntimeError("Model missing or does not support predict_proba.")
+
+    if feature_cols is None or not isinstance(feature_cols, (list, tuple)):
+        raise RuntimeError("Missing feature_cols array in saved model.")
 
     return LoadedModel(
-        name=f"dummy-volatility-{variant}",
-        version="0.1.0",
+        name=f"crypto-vol-{variant}",
+        version="local-week4",
         variant=variant,
-        model=model
+        model=model,
+        feature_cols=list(feature_cols),
+        threshold=threshold,
     )
+
+
+def predict_row(row: dict, variant: str) -> float:
+    return load_model(variant).predict(row)
