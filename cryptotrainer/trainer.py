@@ -7,24 +7,29 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
 
 import mlflow
+from mlflow.models.signature import infer_signature
+import mlflow.sklearn
+
 from dotenv import load_dotenv
 from cryptotrainer.utils import preprocess_data
-
-load_dotenv()
 
 # ----------------------------------------------------------------------
 # CONFIG
 # ----------------------------------------------------------------------
+load_dotenv()
+
 DATA_PATH = "/app/data/processed"
 MODEL_PATH = os.environ.get("MODEL_OUTPUT_PATH", "/app/models/gbm_volatility.pkl")
 MLFLOW_URI = os.environ.get("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+
+MODEL_NAME = "crypto-vol-ml"  # 🔥 centralized name
 
 
 # ----------------------------------------------------------------------
 # LOAD LATEST FEATURE PARQUET FILE
 # ----------------------------------------------------------------------
 def load_latest_features():
-    print("Scanning:", DATA_PATH)
+    print("📂 Scanning:", DATA_PATH)
     files = [f for f in os.listdir(DATA_PATH) if f.endswith(".parquet")]
 
     if not files:
@@ -39,7 +44,7 @@ def load_latest_features():
 
 
 # ----------------------------------------------------------------------
-# MAIN TRAINING PIPELINE
+# TRAINING PIPELINE
 # ----------------------------------------------------------------------
 def train_model():
 
@@ -59,7 +64,7 @@ def train_model():
     X = df[FEATURE_COLS].fillna(0)
 
     # ------------------------------
-    # Target construction (high volatility next window)
+    # Target: high volatility next window
     # ------------------------------
     vol = df["volatility_30s"].fillna(0)
     tau = np.percentile(vol, 90)
@@ -67,87 +72,55 @@ def train_model():
 
     print(f"📊 High-volatility threshold τ = {tau}")
 
-    # ------------------------------------------------------------------
-    # 🔥 STAGE 1 — RANDOMIZED SEARCH (large search space)
-    # ------------------------------------------------------------------
-    print("\n===============================")
-    print("🔥 Stage 1: RandomizedSearchCV")
-    print("===============================\n")
-
+    # ----------------------------------------------------------------------
+    # Hyperparameter searches
+    # ----------------------------------------------------------------------
     base_gbm = GradientBoostingClassifier(random_state=42)
 
     param_dist = {
-        "n_estimators": [100, 200, 300, 500, 800],
-        "learning_rate": [0.001, 0.01, 0.05, 0.1],
-        "max_depth": [2, 3, 4, 5],
+        "n_estimators": [100, 200, 300, 500],
+        "learning_rate": [0.005, 0.01, 0.05, 0.1],
+        "max_depth": [2, 3, 4],
         "subsample": [0.6, 0.8, 1.0],
-        "min_samples_split": [2, 10, 20, 40],
-        "min_samples_leaf": [1, 3, 5, 10]
+        "min_samples_split": [2, 10, 20],
+        "min_samples_leaf": [1, 3, 5]
     }
 
+    print("\n🔥 Stage 1: RandomizedSearchCV")
     random_search = RandomizedSearchCV(
         estimator=base_gbm,
         param_distributions=param_dist,
-        n_iter=60,
+        n_iter=40,
         scoring="roc_auc",
         cv=3,
         n_jobs=-1,
         verbose=2,
         random_state=42
     )
-
-    print("🔍 Running wide hyperparameter search...")
     random_search.fit(X, y)
 
-    stage1_params = random_search.best_params_
-    print("\n✅ Stage 1 best parameters:", stage1_params)
-    print("📈 Stage 1 best CV ROC-AUC:", random_search.best_score_)
-
     best_stage1_model = random_search.best_estimator_
+    print("🔥 Stage 1 best params:", random_search.best_params_)
 
-
-    # ------------------------------------------------------------------
-    # 🔥 STAGE 2 — GRID SEARCH (fine tuning around Stage 1 best params)
-    # ------------------------------------------------------------------
-    print("\n===============================")
-    print("🔥 Stage 2: GridSearchCV (fine tuning)")
-    print("===============================\n")
-
-    # Helper to keep values positive and valid
-    def around(val, choices):
-        out = []
-        for c in choices:
-            x = val * c
-            if x > 0:
-                out.append(x)
-        return sorted(set(out))
-
+    # ----------------------------------------------------------------------
+    # Fine tuning
+    # ----------------------------------------------------------------------
+    print("\n🎯 Stage 2: GridSearchCV (fine tuning)")
     grid_params = {
-        "n_estimators": [stage1_params["n_estimators"] - 100,
-                         stage1_params["n_estimators"],
-                         stage1_params["n_estimators"] + 100],
-
-        "learning_rate": around(stage1_params["learning_rate"], [0.5, 1, 1.5]),
-
+        "n_estimators": [
+            random_search.best_params_["n_estimators"] - 50,
+            random_search.best_params_["n_estimators"],
+            random_search.best_params_["n_estimators"] + 50
+        ],
+        "learning_rate": [random_search.best_params_["learning_rate"]],
         "max_depth": [
-            max(1, stage1_params["max_depth"] - 1),
-            stage1_params["max_depth"],
-            stage1_params["max_depth"] + 1
+            random_search.best_params_["max_depth"] - 1,
+            random_search.best_params_["max_depth"],
+            random_search.best_params_["max_depth"] + 1,
         ],
-
-        "subsample": [stage1_params["subsample"]],
-
-        "min_samples_split": [
-            stage1_params["min_samples_split"],
-            max(2, stage1_params["min_samples_split"] // 2),
-            stage1_params["min_samples_split"] + 5
-        ],
-
-        "min_samples_leaf": [
-            stage1_params["min_samples_leaf"],
-            max(1, stage1_params["min_samples_leaf"] // 2),
-            stage1_params["min_samples_leaf"] + 2
-        ]
+        "subsample": [random_search.best_params_["subsample"]],
+        "min_samples_split": [random_search.best_params_["min_samples_split"]],
+        "min_samples_leaf": [random_search.best_params_["min_samples_leaf"]],
     }
 
     grid_search = GridSearchCV(
@@ -158,59 +131,46 @@ def train_model():
         n_jobs=-1,
         verbose=2
     )
-
-    print("🎯 Running second-stage fine-tuning...")
     grid_search.fit(X, y)
 
-    final_params = grid_search.best_params_
-    print("\n🎉 Final best GBM parameters:", final_params)
-    print("🏆 Final best CV ROC-AUC:", grid_search.best_score_)
-
     final_model = grid_search.best_estimator_
-
+    print("🏆 Final best params:", grid_search.best_params_)
 
     # ----------------------------------------------------------------------
-    # MLflow Logging + Saving Artifact
+    # MLflow Logging + Registry
     # ----------------------------------------------------------------------
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
 
-        mlflow.log_params({
-            "tau_threshold": float(tau),
-            **final_params
-        })
+        mlflow.log_params({"tau_threshold": float(tau), **grid_search.best_params_})
+        mlflow.log_metric("train_accuracy", final_model.score(X, y))
 
-        # Train accuracy for reference
-        train_acc = final_model.score(X, y)
-        mlflow.log_metric("train_accuracy", train_acc)
+        # Inference signature
+        signature = infer_signature(X, final_model.predict(X))
 
-        # -------------------------------
-        # Save full artifact for server
-        # -------------------------------
+        print("\n💾 Logging model to MLflow Registry:", MODEL_NAME)
+
+        mlflow.sklearn.log_model(
+            sk_model=final_model,
+            artifact_path="model",
+            registered_model_name=MODEL_NAME,
+            signature=signature
+        )
+
+        # Save artifact to disk as backup
         artifact = {
             "model": final_model,
             "feature_cols": FEATURE_COLS,
             "high_vol_threshold": float(tau),
         }
-
-        print("\n💾 Saving final optimized model →", MODEL_PATH)
         with open(MODEL_PATH, "wb") as f:
             pickle.dump(artifact, f)
 
-        mlflow.log_artifact(MODEL_PATH)
-
-    print("\n✅ Training complete.")
-    print("📦 Artifact keys:", artifact.keys())
-
-    return artifact
+    print("\n🎉 Training Completed + Model Registered!")
+    return final_model
 
 
 # ----------------------------------------------------------------------
 # MAIN
 # ----------------------------------------------------------------------
 if __name__ == "__main__":
-    try:
-        train_model()
-        print("🎯 Finished end-to-end model training pipeline.")
-    except Exception as e:
-        print("❌ Training failed:", e)
-        raise
+    train_model()

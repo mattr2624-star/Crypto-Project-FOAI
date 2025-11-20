@@ -70,14 +70,18 @@ services:
     environment:
       MODEL_VARIANT: "ml"               # ml | baseline | student1 | student2
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      METRICS_NAMESPACE: "crypto_api"
     volumes:
       - ./models:/app/models
       - ./reports:/app/reports
+      - ./data:/app/data
+      - ./scripts:/app/scripts
+      - ./docs:/app/docs
     networks:
       - cp_network
 
   # --------------------------------------
-  # DRIFT MONITOR (Evidently)
+  # DRIFT MONITOR (Evidently, optional web UI)
   # --------------------------------------
   drift-monitor:
     hostname: drift-monitor
@@ -101,7 +105,7 @@ services:
       - cp_network
 
   # --------------------------------------
-  # TRAINER (Model training)
+  # TRAINER (Model training / replay)
   # --------------------------------------
   trainer:
     build:

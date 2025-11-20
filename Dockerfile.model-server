@@ -16,3 +16,6 @@ EXPOSE 8000
 
 # 🛠 Correct FastAPI entrypoint (no circular import)
 CMD ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# at the end of Dockerfile.model-server
+COPY scripts /app/scripts

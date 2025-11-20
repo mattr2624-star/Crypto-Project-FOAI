@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
 
 jobs:
@@ -11,26 +11,40 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install base dependencies (lint + tests)
+        run: |
+          pip install -r requirements.txt
+          pip install pytest ruff
 
       - name: Lint
-        run: pip install ruff && ruff .
+        run: ruff check .
 
-      - name: Run API test
+      - name: Start model-server stack (thin slice)
         run: |
+          docker compose up -d model-server mlflow kafka zookeeper
+          echo "Waiting for API health..."
           python - << 'EOF'
-          import requests
-          r = requests.post(
-              "http://localhost:8000/predict",
-              json={"rows": [{"midprice": 100, "spread": 0.5, "trade_intensity": 1.2, "volatility_30s": 0.00005}]}
-          )
-          assert r.status_code == 200
+          import time, requests
+
+          url = "http://localhost:8000/health"
+          for i in range(30):
+              try:
+                  r = requests.get(url, timeout=1)
+                  if r.status_code == 200:
+                      print("Healthcheck OK")
+                      break
+              except Exception:
+                  time.sleep(1)
+          else:
+              raise SystemExit("Healthcheck failed after 30s")
           EOF
+
+      - name: Run integration test
+        run: pytest -q --disable-warnings --maxfail=1 tests/test_predict.py

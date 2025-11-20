@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import joblib
 from functools import lru_cache
+
 from .config import get_settings
 
 
@@ -12,9 +13,15 @@ class LoadedModel:
         self.variant = variant
         self.model = model
         self.feature_cols = feature_cols
-        self.threshold = threshold  # For later drift or spike classification use
+        self.threshold = threshold  # optional: spike/alert threshold
 
     def _align_features(self, features: dict) -> pd.DataFrame:
+        """
+        Align incoming JSON row to the model's training schema:
+        - add any missing columns as 0
+        - keep the same column order
+        - strip NaN / inf
+        """
         df = pd.DataFrame([features])
 
         # Add missing columns
@@ -27,12 +34,20 @@ class LoadedModel:
         return df
 
     def predict(self, row: dict) -> float:
+        """
+        Return probability of the "high-vol" class (class 1).
+        """
         aligned = self._align_features(row)
-        return float(self.model.predict_proba(aligned)[0][1])
+        proba = self.model.predict_proba(aligned)[0][1]
+        return float(proba)
 
 
 @lru_cache
 def load_model(variant: str) -> LoadedModel:
+    """
+    Load a given model variant from local joblib pickle, wrapped as a dict.
+    Cached so we only hit disk once per variant.
+    """
     settings = get_settings()
 
     uri_map = {
@@ -49,17 +64,20 @@ def load_model(variant: str) -> LoadedModel:
     raw = joblib.load(path)
 
     if not isinstance(raw, dict):
-        raise RuntimeError("Expected a dict-wrapped model with keys: model, feature_cols, high_vol_threshold")
+        raise RuntimeError(
+            "Expected a dict-wrapped model with keys: "
+            "model, feature_cols, high_vol_threshold"
+        )
 
-    model = raw.get("model", None)
-    feature_cols = raw.get("feature_cols", None)
-    threshold = raw.get("high_vol_threshold", None)
+    model = raw.get("model")
+    feature_cols = raw.get("feature_cols")
+    threshold = raw.get("high_vol_threshold")
 
     if model is None or not hasattr(model, "predict_proba"):
-        raise RuntimeError("Model missing or does not support predict_proba.")
+        raise RuntimeError("Model missing or does not support predict_proba().")
 
     if feature_cols is None or not isinstance(feature_cols, (list, tuple)):
-        raise RuntimeError("Missing feature_cols array in saved model.")
+        raise RuntimeError("Missing or invalid feature_cols in saved model.")
 
     return LoadedModel(
         name=f"crypto-vol-{variant}",
@@ -72,4 +90,8 @@ def load_model(variant: str) -> LoadedModel:
 
 
 def predict_row(row: dict, variant: str) -> float:
-    return load_model(variant).predict(row)
+    """
+    Convenience helper used by the FastAPI layer.
+    """
+    model = load_model(variant)
+    return model.predict(row)
