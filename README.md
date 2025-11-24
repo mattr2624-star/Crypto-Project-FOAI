@@ -19,38 +19,99 @@ This project builds a complete ML pipeline to detect short-term volatility spike
 ## 🏗️ Project Structure
 
 ```
-.
-├── docker/
-│   ├── docker-compose.yaml       # Infrastructure (Kafka, Zookeeper, MLflow)
-│   └── Dockerfile.ingestor       # Containerized data ingestion
-├── scripts/
-│   ├── ws_ingest.py              # WebSocket data ingestion
-│   ├── kafka_consume_check.py    # Stream validation
-│   ├── replay.py                 # Reproducibility verification
-│   ├── generate_evidently_report.py  # Data drift monitoring
-│   └── generate_eval_report.py   # Model evaluation PDF
-├── features/
-│   └── featurizer.py             # Real-time feature computation
-├── models/
-│   ├── baseline.py               # Baseline z-score detector
-│   ├── train.py                  # Training pipeline
-│   ├── infer.py                  # Inference & benchmarking
-│   └── artifacts/                # Saved models and plots
-├── notebooks/
-│   └── eda.ipynb                 # Exploratory data analysis
-├── data/
-│   ├── raw/                      # Raw ticker data (NDJSON)
-│   ├── processed/                # Engineered features (Parquet)
-│   └── reports/                  # Evidently reports
-├── docs/
-│   ├── scoping_brief.pdf         # Problem definition
-│   ├── feature_spec.md           # Feature documentation
-│   ├── model_card_v1.md          # Model documentation
-│   └── genai_appendix.md         # GenAI usage disclosure
-├── reports/
-│   └── model_eval.pdf            # Model evaluation report
-├── requirements.txt              # Python dependencies
-└── README.md                     # This file
+├── api/ # FastAPI application
+│ ├── init.py
+│ └── app.py # Main API endpoints (/predict, /health, /version, /metrics)
+├── docker/ # Docker configuration
+│ ├── compose.yaml # Main Docker Compose (Kafka, Zookeeper, MLflow, API, Prometheus, Grafana)
+│ ├── compose-kraft.yaml # Kafka KRaft mode (alternative)
+│ ├── Dockerfile.api # API service containerization
+│ ├── Dockerfile.ingestor # Data ingestion containerization
+│ ├── grafana/
+│ │ ├── dashboards/
+│ │ │ ├── crypto-volatility.json # Pre-configured Grafana dashboard
+│ │ │ └── dashboard.yml # Dashboard provisioning config
+│ │ └── datasources/
+│ │ └── prometheus.yml # Prometheus datasource config
+│ ├── prometheus/
+│ │ ├── prometheus.yml # Prometheus configuration
+│ │ └── alerts.yml # Prometheus alerting rules
+│ └── mlflow_data/ # MLflow data persistence (volumes)
+├── scripts/ # Utility scripts
+│ ├── ws_ingest.py # WebSocket data ingestion → Kafka
+│ ├── replay.py # Reproducibility verification (offline feature generation)
+│ ├── replay_to_kafka.py # Replay NDJSON to Kafka (E2E testing)
+│ ├── consolidate_data.py # Consolidate feature files & create stratified splits
+│ ├── feature_analysis.py # Feature engineering & selection analysis
+│ ├── generate_evidently_report.py # Data drift monitoring reports
+│ ├── generate_eval_report.py # Model evaluation PDF generation
+│ ├── load_test.py # API load testing script
+│ ├── add_labels.py # Add volatility spike labels to features
+│ ├── kafka_consume_check.py # Stream validation
+│ ├── run_e2e_simple.sh # Simplified end-to-end test (ingestion + API)
+│ ├── run_e2e_test.sh # Full end-to-end pipeline test
+│ └── retrain_all_models.sh # Retrain all models script
+├── features/ # Feature engineering
+│ └── featurizer.py # Real-time feature computation (FeatureComputer, FeaturePipeline)
+├── models/ # Model training & inference
+│ ├── baseline.py # Baseline z-score detector
+│ ├── train.py # Training pipeline (Random Forest, XGBoost, Logistic Regression, Baseline)
+│ ├── infer.py # Inference & benchmarking (VolatilityPredictor)
+│ └── artifacts/ # Saved models and metadata
+│ ├── random_forest/
+│ │ ├── model.pkl # Trained Random Forest model
+│ │ ├── threshold_metadata.json # Optimal threshold (0.7057)
+│ │ └── .png # PR/ROC curves, feature importance
+│ └── baseline/
+│ ├── model.pkl # Baseline model
+│ └── .png # Evaluation plots
+├── tests/ # Test suite
+│ ├── init.py
+│ └── test_api_integration.py # API integration tests (pytest)
+├── notebooks/ # Jupyter notebooks
+│ └── eda.ipynb # Exploratory data analysis
+├── data/ # Data storage
+│ ├── raw/ # Raw ticker data (NDJSON)
+│ │ ├── ticks_BTCUSD_.ndjson # Historical tick data
+│ │ └── ticks_10min_sample.ndjson # Sample data for testing
+│ └── processed/ # Engineered features (Parquet)
+│ ├── features_consolidated.parquet # Consolidated dataset (26,881 samples)
+│ ├── features_consolidated_train.parquet # Training set (stratified split)
+│ ├── features_consolidated_val.parquet # Validation set (stratified split)
+│ ├── features_consolidated_test.parquet # Test set (stratified split)
+│ ├── features_replay.parquet # Replay features
+│ └── features_.parquet # Other feature files
+├── docs/ # Documentation
+│ ├── architecture_diagram.md # System architecture diagram
+│ ├── feature_spec.md # Feature specification (v1.2)
+│ ├── model_card_v1.md # Model card documentation
+│ ├── selection_rationale.md # Model selection rationale
+│ ├── performance_summary.md # Performance metrics & SLO compliance
+│ ├── runbook.md # Operations runbook (startup, troubleshooting, recovery)
+│ ├── slo.md # Service Level Objectives
+│ ├── drift_summary.md # Data drift monitoring strategy
+│ ├── genai_appendix.md # GenAI usage disclosure
+│ ├── scoping_brief.pdf # Problem definition
+│ ├── grafana_dashboard_screenshot.png # Dashboard screenshot
+│ └── load_test_results.json # Load test results
+├── reports/ # Generated reports
+│ ├── evidently/ # Evidently drift reports
+│ │ ├── data_drift_report.html
+│ │ ├── train_test_drift_report.html
+│ │ └── .json # Report metadata
+│ ├── feature_analysis/ # Feature analysis outputs
+│ │ ├── feature_importance.png
+│ │ ├── feature_importance.csv
+│ │ ├── correlation_heatmap.png
+│ │ └── recommended_features.txt
+│ └── model_eval.pdf # Model evaluation report
+├── .github/ # GitHub configuration (if exists)
+│ └── workflows/
+│ └── ci.yml # CI/CD pipeline (lint, test, replay)
+├── requirements.txt # Python dependencies (local development)
+├── requirements-api.txt # Python dependencies (Docker API service only)
+├── PRE_SUBMISSION_CHECKLIST.md # Pre-submission checklist
+└── README.md # This file
 ```
 
 ---
@@ -125,6 +186,8 @@ docker compose ps
 - Zookeeper: localhost:2182
 - MLflow: http://localhost:5001
 - API: http://localhost:8000
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000 (admin/gafanap4ssw0rd)
 
 ### 3. Create Kafka Topics
 
@@ -196,13 +259,13 @@ python scripts/replay.py \
 python -c "
 import pandas as pd
 # Check labeled file (used for training)
-df = pd.read_parquet('data/processed/features_labeled.parquet')
+df = pd.read_parquet('data/processed/features_replay.parquet')
 print(f'Samples: {len(df)}')
 print(f'Columns: {len(df.columns)} columns')
 if 'volatility_spike' in df.columns:
     print(f'Spike rate: {df[\"volatility_spike\"].mean():.2%}')
 else:
-    print('Note: volatility_spike column not found. Add labels using: python scripts/add_labels.py --features data/processed/features.parquet')
+    print('Note: volatility_spike column not found. Add labels using: python scripts/add_labels.py --features data/processed/features_replay.parquet')
 "
 ```
 
@@ -298,7 +361,7 @@ python models/infer.py \
 
 ```bash
 python scripts/generate_eval_report.py \
-  --features data/processed/features.parquet \
+  --features data/processed/features_consolidated.parquet \
   --artifacts models/artifacts \
   --output reports/model_eval.pdf
 
@@ -334,44 +397,34 @@ nano docs/genai_appendix.md
 
 ### Feature Engineering
 
-**Computed Features:**
-- `price_return_1min` - 1-minute price return
-- `price_return_5min` - 5-minute price return  
-- `price_volatility_5min` - Rolling standard deviation
-- `bid_ask_spread` - Absolute bid-ask spread
-- `bid_ask_spread_bps` - Spread in basis points
-- `volume_24h_pct_change` - 24-hour volume change
+**Current Feature Set (v1.2):**
+
+Features are computed over rolling windows: **30s, 60s, and 300s**
+
+**1. Momentum & Volatility (Price Trends):**
+- `log_return_{window}s` - Log returns over fixed lookback periods
+- `realized_volatility_{window}s` - Rolling std dev of 1-second returns (target proxy, volatility clusters)
+- `price_velocity_{window}s` - Rolling mean of absolute 1-second price changes
+
+**2. Liquidity & Microstructure (Market Nerves):**
+- `spread_mean_{window}s` - Rolling mean of bid-ask spread (smoothed)
+- `order_book_imbalance_{window}s` - Rolling mean of buy/sell volume ratio at top of book
+
+**3. Activity (Market Energy):**
+- `trade_intensity_{window}s` - Rolling sum of tick count (trade intensity)
+- `volume_velocity_{window}s` - Rolling sum of trade sizes (may be 0.0 if unavailable)
+
+**Top 10 Features Used in Random Forest Model:**
+1. `order_book_imbalance_300s` (18.8% importance)
+2. `trade_intensity_300s` (17.1% importance)
+3. `spread_mean_300s` (14.9% importance)
+4. `log_return_300s`, `spread_mean_60s`, `order_book_imbalance_60s`
+5. `price_velocity_300s`, `realized_volatility_300s`
+6. `order_book_imbalance_30s`, `realized_volatility_60s`
 
 **Target Variable:**
 - `volatility_spike` - Binary (1 = spike, 0 = normal)
-- Threshold: 90th percentile of rolling volatility
-
----
-
-## 🎯 Project Milestones
-
-### ✅ Milestone 1: Streaming Setup (Complete)
-- Kafka & MLflow infrastructure via Docker
-- Real-time WebSocket data ingestion  
-- Reconnection & heartbeat monitoring
-- Stream validation & containerization
-- Scoping brief with success metrics
-
-### ✅ Milestone 2: Feature Engineering (Complete)
-- Real-time feature computation pipeline
-- Replay script for reproducibility
-- EDA with threshold selection
-- Evidently data quality reports
-- Feature specification documentation
-
-### ✅ Milestone 3: Modeling & Evaluation (Complete)
-- Baseline z-score model
-- ML models (Logistic Regression, XGBoost, Random Forest)
-- MLflow experiment tracking
-- Inference benchmarking (< 2x real-time)
-- Model evaluation PDF report
-- Model Card v1.0
-- GenAI usage appendix
+- Threshold: 90th percentile of future volatility (chunk-aware, 60-second lookahead)
 
 ---
 
@@ -379,37 +432,32 @@ nano docs/genai_appendix.md
 
 ### Model Performance (Test Set)
 
-**Time-Based Split (Default):**
-| Model | PR-AUC | F1-Score | Precision | Recall | Inference Time |
-|-------|--------|----------|-----------|--------|----------------|
-| Baseline (Z-Score) | 0.2881 | 0.0000 | 0.0000 | 0.0000 | < 1ms |
-| Logistic Regression | 0.2549 | 0.4241 | 0.3100 | 0.6708 | < 1ms |
-| XGBoost | 0.7359 | 0.3994 | 0.8741 | 0.2588 | < 1ms |
-
 **Current Model Performance (November 24, 2025) - Stratified Split with Consolidated Data:**
 | Model | PR-AUC (Test) | PR-AUC (Val) | Improvement vs Baseline |
 |-------|---------------|--------------|-------------------------|
-| **Random Forest** | **0.9859** | 0.9806 | **+132.5%** |
+| **Random Forest** | **0.9859** | 0.9806 | **+849%** (9.5x better) |
+| Baseline (Z-Score) | 0.1039 | 0.0861 | Baseline |
 | XGBoost | [To be retrained] | [To be retrained] | - |
-| Baseline (Z-Score) | 0.4240 | [To be retrained] | Baseline |
 | Logistic Regression | [To be retrained] | [To be retrained] | - |
 
+**Note:** Baseline model has very low recall (4.42% test, 2.33% validation), missing 95.58% of volatility spikes. Random Forest significantly outperforms baseline with 93.7% recall.
+
 **Key Findings:**
-- **Current Production Model: Random Forest** achieves PR-AUC 0.9859, F1 0.9471, Recall 93.7%, Precision 95.7%, outperforming baseline by 132.5%
+- **Current Production Model: Random Forest** achieves PR-AUC 0.9859, F1 0.9471, Recall 93.7%, Precision 95.7%, outperforming baseline by 849% (9.5x better)
 - **Consolidated Dataset:** Trained on 26,881 samples from consolidated data (5 feature files, ~350 hours)
 - **Stratified Splits:** Balanced spike rates (~10.67%) across all splits eliminate validation/test imbalance
 - **Model Selection:** Random Forest selected based on best test performance and interpretable feature importance
-- **Top Features:** `price_velocity_300s` (13.9%), `spread_mean_300s` (13.7%), `trade_intensity_300s` (12.9%)
+- **Top Features:** `order_book_imbalance_300s` (18.8%), `trade_intensity_300s` (17.1%), `spread_mean_300s` (14.9%)
 - **Threshold Optimization:** Probability threshold optimized to 0.7057 (maximizes F1-score), achieving excellent performance on both validation and test
 - **Feature Set:** 10 top features from new v1.2 feature set (Momentum & Volatility, Liquidity & Microstructure, Activity)
-- **Previous Best Model:** XGBoost (Stratified) achieved PR-AUC 0.7815 with older feature set (v1.1)
+- **Baseline Performance:** PR-AUC 0.1039 (test), 0.0861 (validation) with very low recall (4.42% test, 2.33% validation)
 
 ### Requirements Met
 
 - ✅ **Inference < 2x real-time:** All models < 120s requirement (typically < 1ms per sample)
 - ✅ **Reproducibility:** Replay matches live features
 - ✅ **Data Quality:** Monitored with Evidently reports
-- ✅ **PR-AUC:** Current model (Random Forest) achieves ~0.9006 PR-AUC with top 10 features (cross-validated)
+- ✅ **PR-AUC:** Current model (Random Forest) achieves 0.9859 PR-AUC (test set) with top 10 features
 
 ---
 
@@ -423,7 +471,8 @@ cd docker && docker compose ps
 
 # 2. Data exists
 ls data/raw/*.ndjson
-ls data/processed/features.parquet
+ls data/processed/features_consolidated.parquet
+ls data/processed/features_replay.parquet
 
 # 3. Models trained
 ls models/artifacts/*/model.pkl
@@ -458,7 +507,7 @@ curl http://localhost:5001/health
 # Check sample count
 python -c "
 import pandas as pd
-df = pd.read_parquet('data/processed/features.parquet')
+df = pd.read_parquet('data/processed/features_consolidated.parquet')
 print(f'Samples: {len(df)} (need 500+)')
 print(f'Spike rate: {df[\"volatility_spike\"].mean():.2%} (target: 5-15%)')
 "
@@ -475,7 +524,7 @@ When data drift is detected, follow these steps to maintain model performance:
 ```bash
 # Generate drift report
 python scripts/generate_evidently_report.py \
-  --features data/processed/features_labeled.parquet \
+  --features data/processed/features_replay.parquet \
   --output reports/evidently/data_drift_report.html
 
 # Open and review the report
@@ -547,7 +596,7 @@ python scripts/ws_ingest.py --pair BTC-USD --minutes 60 --save-disk
 # 2. Regenerate features with latest data
 python scripts/replay.py \
   --raw "data/raw/ticks_BTCUSD_*.ndjson" \
-  --out data/processed/features.parquet \
+  --out data/processed/features_replay.parquet \
   --add-labels
 
 # 3. Retrain models
@@ -595,7 +644,7 @@ python models/infer.py \
 # Set up weekly drift checks (add to cron or scheduled job)
 # Weekly: Generate drift report
 python scripts/generate_evidently_report.py \
-  --features data/processed/features_labeled.parquet \
+  --features data/processed/features_replay.parquet \
   --output reports/evidently/weekly_drift_$(date +%Y%m%d).html
 
 # Weekly: Evaluate model on recent data
@@ -644,10 +693,10 @@ Consider implementing:
 - Docker Compose
 
 **ML & Analysis:**
-- scikit-learn 1.3.2
+- scikit-learn >=1.4.0
 - XGBoost 2.0.3
 - pandas, NumPy
-- Evidently 0.4.11
+- Evidently >=0.4.40,<0.5.0
 - Jupyter
 
 **Data Formats:**
@@ -662,7 +711,7 @@ Consider implementing:
 **Common Issues:**
 1. Kafka not accessible → Check Docker containers, verify hostname resolution
 2. No data collected → Verify WebSocket connection, check Coinbase API status
-3. Models not training → Ensure features.parquet exists with 500+ samples
+3. Models not training → Ensure features_consolidated.parquet or features_replay.parquet exists with 500+ samples
 4. Poor model performance → Collect more data, adjust threshold, add features
 
 **Resources:**
