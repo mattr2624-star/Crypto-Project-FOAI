@@ -12,6 +12,25 @@ import sys
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+
+def check_api_available(api_base_url: str) -> bool:
+    """Check if API server is available."""
+    try:
+        import socket
+        from urllib.parse import urlparse
+
+        parsed = urlparse(api_base_url)
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 8000
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex((host, port))
+        sock.close()
+        return result == 0
+    except Exception:
+        return False
+
 # Sample feature data matching the expected format
 SAMPLE_FEATURES = {
     "log_return_300s": 0.001,
@@ -36,6 +55,9 @@ def api_base_url():
 @pytest.mark.asyncio
 async def test_health_endpoint(api_base_url):
     """Test /health endpoint returns 200."""
+    if not check_api_available(api_base_url):
+        pytest.skip(f"API server not available at {api_base_url}")
+
     async with httpx.AsyncClient() as client:
         response = await client.get(f"{api_base_url}/health")
         assert response.status_code == 200
@@ -48,6 +70,9 @@ async def test_health_endpoint(api_base_url):
 @pytest.mark.asyncio
 async def test_version_endpoint(api_base_url):
     """Test /version endpoint returns version info."""
+    if not check_api_available(api_base_url):
+        pytest.skip(f"API server not available at {api_base_url}")
+
     async with httpx.AsyncClient() as client:
         response = await client.get(f"{api_base_url}/version")
         assert response.status_code == 200
@@ -60,6 +85,9 @@ async def test_version_endpoint(api_base_url):
 @pytest.mark.asyncio
 async def test_predict_endpoint(api_base_url):
     """Test /predict endpoint with sample features."""
+    if not check_api_available(api_base_url):
+        pytest.skip(f"API server not available at {api_base_url}")
+
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.post(
             f"{api_base_url}/predict", json={"features": SAMPLE_FEATURES}
@@ -80,6 +108,9 @@ async def test_predict_endpoint(api_base_url):
 @pytest.mark.asyncio
 async def test_metrics_endpoint(api_base_url):
     """Test /metrics endpoint returns Prometheus format."""
+    if not check_api_available(api_base_url):
+        pytest.skip(f"API server not available at {api_base_url}")
+
     async with httpx.AsyncClient() as client:
         response = await client.get(f"{api_base_url}/metrics")
         assert response.status_code == 200
