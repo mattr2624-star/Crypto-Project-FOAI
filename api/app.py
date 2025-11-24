@@ -31,10 +31,10 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from models.infer import (
+from models.infer import (  # noqa: E402
     VolatilityPredictor,
     prepare_features_for_inference,
-)  # noqa: E402
+)
 
 # Setup structured logging with JSON format
 try:
