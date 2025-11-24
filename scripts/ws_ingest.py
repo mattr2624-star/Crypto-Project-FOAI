@@ -9,7 +9,6 @@ import os
 import time
 import argparse
 import signal
-import sys
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -82,7 +81,7 @@ class CoinbaseIngestor:
                 if self.producer:
                     try:
                         self.producer.close(timeout=5)
-                    except:
+                    except Exception:
                         pass
 
                 self.producer = KafkaProducer(
@@ -217,7 +216,7 @@ class CoinbaseIngestor:
                 }
 
             if not ticker_data:
-                logger.debug(f"No ticker data found in message")
+                logger.debug("No ticker data found in message")
                 return
 
             # Enrich with metadata
@@ -400,7 +399,7 @@ class CoinbaseIngestor:
         if self.ws:
             try:
                 self.ws.close()
-            except:
+            except Exception:
                 pass
 
         # Flush and close Kafka producer
@@ -456,7 +455,7 @@ def main():
     else:
         pairs = [args.pair]
 
-    logger.info(f"Starting Coinbase WebSocket Ingestor")
+    logger.info("Starting Coinbase WebSocket Ingestor")
     logger.info(f"Trading pairs: {pairs}")
     logger.info(f"Kafka topic: {KAFKA_TOPIC}")
 

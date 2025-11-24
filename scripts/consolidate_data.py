@@ -12,7 +12,6 @@ This script:
 
 import argparse
 import pandas as pd
-import numpy as np
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 import sys
@@ -154,7 +153,6 @@ def create_stratified_splits(
     print(f"{'='*60}")
 
     # First split: train vs (val+test)
-    train_size = 1 - val_size - test_size
     temp_size = val_size + test_size
 
     # Use stratified split to maintain spike rate
@@ -175,7 +173,7 @@ def create_stratified_splits(
     )
 
     # Report split statistics
-    print(f"\nSplit Statistics:")
+    print("\nSplit Statistics:")
     print(
         f"{'Set':<12} {'Samples':<10} {'Spike Rate':<12} {'Spikes':<10} {'Non-Spikes':<10}"
     )
@@ -276,7 +274,7 @@ def main():
             val_df.to_parquet(val_path, index=False)
             test_df.to_parquet(test_path, index=False)
 
-            print(f"\n✓ Saved splits:")
+            print("\n✓ Saved splits:")
             print(f"  Train: {train_path}")
             print(f"  Validation: {val_path}")
             print(f"  Test: {test_path}")

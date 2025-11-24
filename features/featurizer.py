@@ -6,7 +6,6 @@ from raw tick data and publishes to ticks.features topic.
 import argparse
 import json
 import logging
-from datetime import datetime
 from collections import deque
 from typing import Dict, Any, Optional
 import pandas as pd
@@ -142,7 +141,7 @@ class FeatureComputer:
         if timestamp_str:
             try:
                 ts = pd.to_datetime(timestamp_str, utc=True)
-            except:
+            except Exception:
                 # Fallback to current UTC time
                 ts = pd.Timestamp.now(tz="UTC")
         else:
@@ -606,7 +605,7 @@ class FeaturePipeline:
         self.features_batch = []
         self.batch_size = 100
 
-        logger.info(f"FeaturePipeline initialized")
+        logger.info("FeaturePipeline initialized")
         logger.info(f"  Input topic: {input_topic}")
         logger.info(f"  Output topic: {output_topic}")
         logger.info(f"  Output file: {output_file}")
@@ -980,7 +979,7 @@ class FeaturePipeline:
 
             self.consumer.close()
             self.producer.close()
-            logger.info(f"Pipeline stopped.")
+            logger.info("Pipeline stopped.")
             logger.info(f"  Total messages seen: {message_count}")
             logger.info(f"  Successfully processed: {processed_count}")
             logger.info(f"  Skipped (invalid): {skipped_count}")

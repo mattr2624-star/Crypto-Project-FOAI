@@ -13,7 +13,7 @@ import pandas as pd
 # Add parent directory to path to import features module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from features.featurizer import FeatureComputer, FeaturePipeline
+from features.featurizer import FeatureComputer, FeaturePipeline  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -132,7 +132,7 @@ def compare_outputs(
     replay_df = replay_df.sort_values("timestamp").reset_index(drop=True)
 
     # Basic comparison
-    logger.info(f"\nComparison:")
+    logger.info("\nComparison:")
     logger.info(f"  Replay rows: {len(replay_df)}")
     logger.info(f"  Original rows: {len(original_df)}")
 
@@ -156,7 +156,7 @@ def compare_outputs(
     if replay_cols == original_cols:
         logger.info(f"  ✓ Column names match ({len(replay_cols)} columns)")
     else:
-        logger.warning(f"  ✗ Column mismatch!")
+        logger.warning("  ✗ Column mismatch!")
         logger.warning(f"    Only in replay: {replay_cols - original_cols}")
         logger.warning(f"    Only in original: {original_cols - replay_cols}")
 
@@ -219,7 +219,7 @@ def compare_outputs(
                 replay_df["volatility_spike"] == original_df["volatility_spike"]
             ).sum()
             label_match_pct = label_match / len(replay_df) * 100
-            logger.info(f"\n  Label comparison:")
+            logger.info("\n  Label comparison:")
             logger.info(
                 f"    volatility_spike match: {label_match_pct:.2f}% ({label_match}/{len(replay_df)})"
             )

@@ -8,7 +8,6 @@ Supports two report types:
 import argparse
 import pandas as pd
 from pathlib import Path
-from datetime import timedelta
 
 from evidently.report import Report
 from evidently.metrics import (
@@ -51,7 +50,7 @@ def load_and_split_data(features_path: str, split_ratio: float = 0.5):
     reference = df.iloc[:split_idx].copy()
     current = df.iloc[split_idx:].copy()
 
-    logger.info(f"Split data:")
+    logger.info("Split data:")
     logger.info(f"  Reference: {len(reference)} rows")
     logger.info(f"  Current: {len(current)} rows")
 
@@ -94,7 +93,7 @@ def load_train_test_split(
     val_df = df.iloc[train_end:val_end].copy()
     test_df = df.iloc[val_end:].copy()
 
-    logger.info(f"Train/test split:")
+    logger.info("Train/test split:")
     logger.info(f"  Train: {len(train_df)} rows ({len(train_df)/n*100:.1f}%)")
     logger.info(f"  Val:   {len(val_df)} rows ({len(val_df)/n*100:.1f}%)")
     logger.info(f"  Test:  {len(test_df)} rows ({len(test_df)/n*100:.1f}%)")
@@ -288,7 +287,7 @@ def main():
         reference, current = load_and_split_data(args.features, args.split_ratio)
 
     # Generate report
-    report = generate_report(reference, current, args.output)
+    generate_report(reference, current, args.output)
 
     logger.info("Done! Open the HTML report in your browser to view results.")
 

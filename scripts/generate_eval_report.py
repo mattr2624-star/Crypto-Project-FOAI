@@ -4,7 +4,6 @@ Includes performance metrics, visualizations, and comparisons.
 """
 
 import argparse
-import json
 import pickle
 from pathlib import Path
 from datetime import datetime
@@ -18,7 +17,6 @@ from sklearn.metrics import (
     precision_recall_curve,
     roc_curve,
     confusion_matrix,
-    classification_report,
 )
 
 
@@ -351,7 +349,7 @@ def create_feature_importance_page(pdf, models_dict: dict, X_test=None):
 
 def generate_report(features_path: str, artifacts_dir: str, output_path: str):
     """Generate comprehensive evaluation report."""
-    print(f"Generating evaluation report...")
+    print("Generating evaluation report...")
 
     # Import prepare_features from train.py and BaselineVolatilityDetector
     import sys
@@ -403,7 +401,7 @@ def generate_report(features_path: str, artifacts_dir: str, output_path: str):
                 ]
 
                 if not available_features:
-                    print(f"Warning: None of the required baseline features found.")
+                    print("Warning: None of the required baseline features found.")
                     print(f"  Expected: {baseline_features}")
                     print(f"  Available: {X_test.columns.tolist()}")
                     continue
@@ -446,12 +444,12 @@ def generate_report(features_path: str, artifacts_dir: str, output_path: str):
 
             try:
                 roc_auc = roc_auc_score(y_test, y_proba)
-            except:
+            except Exception:
                 roc_auc = 0.0
 
             try:
                 pr_auc = average_precision_score(y_test, y_proba)
-            except:
+            except Exception:
                 pr_auc = 0.0
 
             metrics_dict[model_name] = {

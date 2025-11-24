@@ -5,7 +5,6 @@ Analyzes feature importance, correlation, and selects optimal feature set.
 
 import argparse
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
@@ -14,18 +13,15 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.metrics import average_precision_score, make_scorer
-from sklearn.feature_selection import (
+from sklearn.ensemble import RandomForestClassifier  # noqa: E402
+from sklearn.model_selection import cross_val_score, StratifiedKFold  # noqa: E402
+from sklearn.metrics import average_precision_score, make_scorer  # noqa: E402
+from sklearn.feature_selection import (  # noqa: E402
     SelectKBest,
     f_classif,
     mutual_info_classif,
-    RFE,
     RFECV,
 )
-from sklearn.preprocessing import StandardScaler
-import joblib
 
 
 def load_data(features_path: str) -> Tuple[pd.DataFrame, pd.Series]:
@@ -103,7 +99,7 @@ def analyze_feature_importance(
         {"feature": X.columns, "importance": rf.feature_importances_}
     ).sort_values("importance", ascending=False)
 
-    print(f"\nTop 10 Most Important Features:")
+    print("\nTop 10 Most Important Features:")
     print(importance_df.head(10).to_string(index=False))
 
     return importance_df, rf
@@ -188,7 +184,7 @@ def recursive_feature_elimination(
     """
     Use RFE with cross-validation to select optimal features.
     """
-    print(f"\n=== Recursive Feature Elimination (RFE) ===")
+    print("\n=== Recursive Feature Elimination (RFE) ===")
 
     rf = RandomForestClassifier(
         n_estimators=50,
@@ -404,7 +400,7 @@ def main():
     print(
         f"Cross-Validated PR-AUC: {best_set['mean_pr_auc']:.4f} ± {best_set['std_pr_auc']:.4f}"
     )
-    print(f"\nFeatures:")
+    print("\nFeatures:")
     for feat in recommended_features:
         print(f"  - {feat}")
 

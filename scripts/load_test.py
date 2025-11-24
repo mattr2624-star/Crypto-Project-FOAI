@@ -61,7 +61,7 @@ async def run_load_test(
     url = f"{base_url}/predict"
     results: List[Dict] = []
 
-    print(f"Starting load test:")
+    print("Starting load test:")
     print(f"  URL: {url}")
     print(f"  Total requests: {num_requests}")
     print(f"  Concurrent requests: {concurrent}")

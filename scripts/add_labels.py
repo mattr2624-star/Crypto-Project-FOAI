@@ -10,7 +10,7 @@ from pathlib import Path
 
 # Import from featurizer to use the chunk-aware label creation
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from features.featurizer import add_labels_to_file
+from features.featurizer import add_labels_to_file  # noqa: E402
 
 
 def main():

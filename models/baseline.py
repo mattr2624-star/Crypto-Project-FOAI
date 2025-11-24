@@ -10,7 +10,7 @@ composite is used for thresholding.
 
 import numpy as np
 import pandas as pd
-from typing import Dict, Tuple, List
+from typing import Dict, List
 from sklearn.metrics import (
     precision_recall_fscore_support,
     roc_auc_score,

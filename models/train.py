@@ -8,7 +8,6 @@ import argparse
 import json
 import pickle
 from pathlib import Path
-from datetime import datetime
 from typing import Dict, Tuple
 
 import numpy as np
@@ -82,7 +81,6 @@ def load_and_split_data(
         # Stratified split to maintain balanced spike rates
         from sklearn.model_selection import train_test_split
 
-        train_size = 1 - val_size - test_size
         temp_size = val_size + test_size
 
         # First split: train vs (val+test)
@@ -99,7 +97,7 @@ def load_and_split_data(
             random_state=42,
         )
 
-        print(f"\nStratified Split (balanced spike rates):")
+        print("\nStratified Split (balanced spike rates):")
         print(
             f"  Train: {len(train_df)} samples ({train_df['volatility_spike'].mean():.2%} spikes)"
         )
@@ -120,7 +118,7 @@ def load_and_split_data(
         val_df = df.iloc[train_end:val_end].copy()
         test_df = df.iloc[val_end:].copy()
 
-        print(f"\nTime-based Split:")
+        print("\nTime-based Split:")
         print(
             f"  Train: {len(train_df)} samples ({train_df['volatility_spike'].mean():.2%} spikes)"
         )
@@ -175,9 +173,9 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
 
     if len(available_cols) < len(priority_features):
         missing = set(priority_features) - set(available_cols)
-        logger.warning(f"Some expected features missing: {missing}")
-        logger.warning(
-            f"Using {len(available_cols)} available features: {available_cols}"
+        print(f"⚠ Warning: Some expected features missing: {missing}")
+        print(
+            f"⚠ Warning: Using {len(available_cols)} available features: {available_cols}"
         )
 
     X = df[available_cols].copy()
@@ -307,7 +305,7 @@ def train_baseline(
     X_val_base = X_val[available_features].copy()
     X_test_base = X_test[available_features].copy()
 
-    with mlflow.start_run(run_name="baseline_zscore") as run:
+    with mlflow.start_run(run_name="baseline_zscore"):
         # Log parameters
         mlflow.log_param("model_type", "baseline")
         mlflow.log_param("threshold", threshold)
@@ -377,7 +375,7 @@ def train_baseline(
         except (OSError, Exception) as e:
             error_str = str(e)
             if "Read-only file system" in error_str or "/mlflow" in error_str:
-                print(f"⚠ Warning: Could not log model artifact to MLflow server")
+                print("⚠ Warning: Could not log model artifact to MLflow server")
                 print(f"   Model saved locally at: {model_path}")
                 print(f"   Error: {str(e)[:100]}")
             else:
@@ -492,7 +490,7 @@ def train_logistic_regression(
             mlflow.sklearn.log_model(model_pipeline, "model")
         except OSError as e:
             if "Read-only file system" in str(e) or "/mlflow" in str(e):
-                print(f"⚠ Warning: Could not log model to MLflow server")
+                print("⚠ Warning: Could not log model to MLflow server")
             else:
                 raise
 
@@ -620,7 +618,7 @@ def train_xgboost(
             mlflow.xgboost.log_model(model, "model")
         except OSError as e:
             if "Read-only file system" in str(e) or "/mlflow" in str(e):
-                print(f"⚠ Warning: Could not log model to MLflow server")
+                print("⚠ Warning: Could not log model to MLflow server")
             else:
                 raise
 
@@ -707,7 +705,7 @@ def train_random_forest(
         threshold_10pct = np.percentile(y_val_proba, (1 - target_spike_rate) * 100)
 
         # Use optimal F1 threshold for predictions (works better across validation and test sets)
-        print(f"\nThreshold Optimization:")
+        print("\nThreshold Optimization:")
         print(f"  Optimal threshold (max F1): {optimal_threshold:.4f}")
         print(f"  Threshold for 10% spike rate: {threshold_10pct:.4f}")
         print(
@@ -778,7 +776,7 @@ def train_random_forest(
             mlflow.sklearn.log_model(model, "model")
         except OSError as e:
             if "Read-only file system" in str(e) or "/mlflow" in str(e):
-                print(f"⚠ Warning: Could not log model to MLflow server")
+                print("⚠ Warning: Could not log model to MLflow server")
             else:
                 raise
 
@@ -804,7 +802,7 @@ def train_random_forest(
         print(f"\nSaved threshold metadata to: {threshold_path}")
         print(f"Validation PR-AUC: {val_metrics['pr_auc']:.4f}")
         print(f"Test PR-AUC: {test_metrics['pr_auc']:.4f}")
-        print(f"\nTop 5 Features by Importance:")
+        print("\nTop 5 Features by Importance:")
         for idx, row in feature_importance.head(5).iterrows():
             print(f"  {row['feature']}: {row['importance']:.4f}")
 
@@ -855,7 +853,7 @@ def main():
             health_url = f"{args.mlflow_uri.rstrip('/')}/health"
             try:
                 urllib.request.urlopen(health_url, timeout=2)
-            except:
+            except Exception:
                 raise ConnectionError("MLflow server health check failed")
             # Try to access MLflow client (this will fail if server is truly not accessible)
             client = MlflowClient(tracking_uri=args.mlflow_uri)
@@ -897,7 +895,7 @@ def main():
         args.features, split_method=args.split_method
     )
 
-    print(f"\nData splits:")
+    print("\nData splits:")
     print(
         f"  Train: {len(train_df)} samples ({train_df['volatility_spike'].mean():.2%} spikes)"
     )

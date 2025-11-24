@@ -7,22 +7,20 @@ import argparse
 import pickle
 import time
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict
 
 import pandas as pd
-import numpy as np
 
 # Import feature preparation logic from train.py for consistency
 # Handle imports for both module and script execution
 import sys
-from pathlib import Path
 
 # Add models directory to path to allow importing train module
 models_dir = Path(__file__).parent
 if str(models_dir) not in sys.path:
     sys.path.insert(0, str(models_dir))
 
-from train import prepare_features
+from train import prepare_features  # noqa: E402
 
 
 class VolatilityPredictor:
@@ -181,9 +179,9 @@ def benchmark_inference(model_path: str, features_path: str, n_samples: int = 10
         features_path: Path to test features
         n_samples: Number of samples to benchmark
     """
-    print(f"\n=== Inference Benchmark ===")
+    print("\n=== Inference Benchmark ===")
     print(f"Model: {model_path}")
-    print(f"Requirement: < 120 seconds for 60-second prediction window")
+    print("Requirement: < 120 seconds for 60-second prediction window")
     print(f"Testing with {n_samples} samples...\n")
 
     # Load model and data
@@ -222,7 +220,7 @@ def benchmark_inference(model_path: str, features_path: str, n_samples: int = 10
     real_time_window = 60  # seconds
     max_allowed_time = 2 * real_time_window  # 2x real-time = 120 seconds
 
-    print(f"\n=== Real-Time Performance Check ===")
+    print("\n=== Real-Time Performance Check ===")
     print(f"Prediction window: {real_time_window} seconds")
     print(f"Maximum allowed inference time: {max_allowed_time} seconds")
     print(f"Actual batch time: {batch_time:.3f} seconds")
@@ -251,7 +249,7 @@ def run_live_inference(model_path: str, features_path: str):
         model_path: Path to model
         features_path: Path to features (simulating streaming data)
     """
-    print(f"\n=== Live Inference Simulation ===")
+    print("\n=== Live Inference Simulation ===")
     print(f"Model: {model_path}\n")
 
     predictor = VolatilityPredictor(model_path)
@@ -292,7 +290,7 @@ def run_live_inference(model_path: str, features_path: str):
     print(f"Processed {len(df)} total samples")
 
     stats = predictor.get_stats()
-    print(f"\n=== Statistics ===")
+    print("\n=== Statistics ===")
     print(f"Total predictions: {stats['total_predictions']}")
     print(f"Average inference time: {stats['avg_inference_time_ms']:.2f} ms")
     print(f"Throughput: {stats['throughput_per_second']:.1f} predictions/second")
