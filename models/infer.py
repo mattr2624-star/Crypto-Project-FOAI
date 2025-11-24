@@ -37,8 +37,23 @@ class VolatilityPredictor:
         Args:
             model_path: Path to pickled model file
         """
-        with open(model_path, 'rb') as f:
+        self.model_path = Path(model_path)
+        with open(self.model_path, 'rb') as f:
             self.model = pickle.load(f)
+        
+        # Load threshold metadata if available
+        threshold_path = self.model_path.parent / "threshold_metadata.json"
+        if threshold_path.exists():
+            import json
+            with open(threshold_path, 'r') as f:
+                threshold_metadata = json.load(f)
+                # Use threshold_used if available (preferred), otherwise fall back to threshold_10pct or optimal_threshold
+                self.threshold = threshold_metadata.get("threshold_used", 
+                    threshold_metadata.get("threshold_10pct", 
+                    threshold_metadata.get("optimal_threshold", 0.5)))
+        else:
+            # Default threshold (fallback)
+            self.threshold = 0.5
         
         self.prediction_count = 0
         self.total_inference_time = 0.0
@@ -61,7 +76,8 @@ class VolatilityPredictor:
         else:
             proba = self.model.predict(features)
         
-        prediction = (proba >= 0.5).astype(int)
+        # Use optimized threshold instead of default 0.5
+        prediction = (proba >= self.threshold).astype(int)
         
         inference_time = time.time() - start_time
         self.prediction_count += 1
@@ -91,7 +107,8 @@ class VolatilityPredictor:
         else:
             proba = self.model.predict(features)
         
-        predictions = (proba >= 0.5).astype(int)
+        # Use optimized threshold instead of default 0.5
+        predictions = (proba >= self.threshold).astype(int)
         
         inference_time = time.time() - start_time
         self.prediction_count += len(features)

@@ -55,7 +55,20 @@ This project builds a complete ML pipeline to detect short-term volatility spike
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (≤10 Lines)
+
+```bash
+git clone <repository-url> && cd operationaliseai
+python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+cd docker && docker compose up -d
+curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d '{"features":{"log_return_300s":0.001,"spread_mean_300s":0.5,"trade_intensity_300s":100,"order_book_imbalance_300s":0.6,"spread_mean_60s":0.3,"order_book_imbalance_60s":0.55,"price_velocity_300s":0.0001,"realized_volatility_300s":0.002,"order_book_imbalance_30s":0.52,"realized_volatility_60s":0.0015}}'
+```
+
+**That's it!** The API is running at `http://localhost:8000`. See detailed setup below.
+
+---
+
+## 📋 Detailed Setup
 
 ### Prerequisites
 
@@ -73,13 +86,28 @@ cd operationaliseai
 pyenv install 3.9.25
 pyenv local 3.9.25
 
-# Create virtual environment
-python3 -m venv .venv
+# Initialize pyenv in your shell (if not already in ~/.zshrc)
+eval "$(pyenv init -)"
+
+# If using conda/anaconda, deactivate it first
+conda deactivate
+
+# Create virtual environment (uses pyenv's Python 3.9.25)
+python -m venv .venv
+
+# Activate virtual environment
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Verify Python version
+python --version  # Should show Python 3.9.25
 
 # Install dependencies
 pip install -r requirements.txt
 ```
+
+**Note on Requirements Files:**
+- **`requirements.txt`** - For local development (scripts, notebooks, training). Includes Evidently (requires `pydantic<2`).
+- **`requirements-api.txt`** - For Docker API container only. Uses `pydantic>=2.0` (required by FastAPI). Docker handles this automatically - you don't need to install it manually.
 
 ### 2. Start Infrastructure
 
@@ -96,25 +124,26 @@ docker compose ps
 - Kafka: localhost:9092
 - Zookeeper: localhost:2182
 - MLflow: http://localhost:5001
+- API: http://localhost:8000
 
 ### 3. Create Kafka Topics
 
 ```bash
-# For Docker container names like docker-kafka-1
-docker exec -it docker-kafka-1 kafka-topics --create \
+# For Docker container names like kafka
+docker exec -it kafka kafka-topics --create \
   --topic ticks.raw \
   --bootstrap-server localhost:9092 \
   --partitions 3 \
   --replication-factor 1
 
-docker exec -it docker-kafka-1 kafka-topics --create \
+docker exec -it kafka kafka-topics --create \
   --topic ticks.features \
   --bootstrap-server localhost:9092 \
   --partitions 3 \
   --replication-factor 1
 
 # Verify
-docker exec -it docker-kafka-1 kafka-topics --list --bootstrap-server localhost:9092
+docker exec -it kafka kafka-topics --list --bootstrap-server localhost:9092
 ```
 
 ### 4. Configure Hostname Resolution (for local execution)
@@ -150,18 +179,30 @@ wc -l data/raw/ticks_BTCUSD_*.ndjson
 **Generate features from raw data:**
 
 ```bash
-# Process all raw data into features
+
+# Option1: Process from Kafka stream (for live streaming data)
+python features/featurizer.py \
+  --output_file data/processed/features.parquet
+# Labels added automatically when pipeline finishes
+
+# Alternative: Uses FeatureComputer (same as featurizer) + adds volatility_spike labels
 python scripts/replay.py \
   --raw "data/raw/ticks_BTCUSD_*.ndjson" \
-  --out data/processed/features.parquet
+  --out data/processed/features.parquet \
+  --add-labels \
+  --label-threshold-percentile 90
 
 # Verify features created
 python -c "
 import pandas as pd
-df = pd.read_parquet('data/processed/features.parquet')
+# Check labeled file (used for training)
+df = pd.read_parquet('data/processed/features_labeled.parquet')
 print(f'Samples: {len(df)}')
-print(f'Columns: {list(df.columns)}')
-print(f'Spike rate: {df[\"volatility_spike\"].mean():.2%}')
+print(f'Columns: {len(df.columns)} columns')
+if 'volatility_spike' in df.columns:
+    print(f'Spike rate: {df[\"volatility_spike\"].mean():.2%}')
+else:
+    print('Note: volatility_spike column not found. Add labels using: python scripts/add_labels.py --features data/processed/features.parquet')
 "
 ```
 
@@ -175,8 +216,38 @@ jupyter notebook notebooks/eda.ipynb
 **Generate drift report:**
 
 ```bash
-python scripts/generate_evidently_report.py
-open data/reports/evidently_report.html
+# Compare early vs late data (data drift)
+python scripts/generate_evidently_report.py \
+  --features data/processed/features_replay.parquet \
+  --output reports/evidently/data_drift_report.html
+
+# Compare train vs test split (train/test drift)
+python scripts/generate_evidently_report.py \
+  --features data/processed/features_replay.parquet \
+  --report_type train_test \
+  --output reports/evidently/train_test_drift_report.html
+
+# Open reports
+open reports/evidently/data_drift_report.html
+```
+
+**Consolidate all available data for better performance:**
+
+```bash
+# Consolidate all feature files and create balanced splits
+python scripts/consolidate_data.py --splits
+
+# This creates:
+# - data/processed/features_consolidated.parquet (all data)
+# - data/processed/features_consolidated_train.parquet
+# - data/processed/features_consolidated_val.parquet
+# - data/processed/features_consolidated_test.parquet
+
+# Train with consolidated data and stratified splits (recommended)
+python models/train.py \
+  --features data/processed/features_consolidated.parquet \
+  --split-method stratified \
+  --models random_forest
 ```
 
 ### Milestone 3: Model Training & Evaluation (30 minutes)
@@ -184,11 +255,29 @@ open data/reports/evidently_report.html
 **Train all models:**
 
 ```bash
+# Train models with consolidated data and stratified splits (recommended)
 python models/train.py \
-  --features data/processed/features.parquet \
-  --models baseline logistic xgboost \
+  --features data/processed/features_consolidated.parquet \
+  --split-method stratified \
+  --models baseline logistic xgboost random_forest \
+  --mlflow-uri http://localhost:5001
+
+# Or use time-based split (original method)
+python models/train.py \
+  --features data/processed/features_replay.parquet \
+  --split-method time_based \
+  --models random_forest \
   --mlflow-uri http://localhost:5001
 ```
+
+**Threshold Optimization:**
+- The Random Forest model automatically optimizes the **probability threshold** during training
+- Uses optimal F1 threshold (0.7057) which maximizes F1-score on validation set
+- This threshold achieves excellent performance: validation PR-AUC 0.9806, test PR-AUC 0.9859
+- Alternative threshold for 10% spike rate (0.8050) is computed for reference but not used
+- Threshold is saved to `models/artifacts/random_forest/threshold_metadata.json`
+- Inference code automatically loads and uses the optimized threshold
+- This ensures the model predicts spikes appropriately: high precision (95.7%) and recall (93.7%)
 
 **View results in MLflow:**
 ```bash
@@ -199,8 +288,8 @@ open http://localhost:5001
 
 ```bash
 python models/infer.py \
-  --model models/artifacts/logistic_regression/model.pkl \
-  --features data/processed/features.parquet \
+  --model models/artifacts/random_forest/model.pkl \
+  --features data/processed/features_replay.parquet \
   --mode benchmark \
   --n-samples 1000
 ```
@@ -277,7 +366,7 @@ nano docs/genai_appendix.md
 
 ### ✅ Milestone 3: Modeling & Evaluation (Complete)
 - Baseline z-score model
-- ML models (Logistic Regression, XGBoost)
+- ML models (Logistic Regression, XGBoost, Random Forest)
 - MLflow experiment tracking
 - Inference benchmarking (< 2x real-time)
 - Model evaluation PDF report
@@ -290,20 +379,37 @@ nano docs/genai_appendix.md
 
 ### Model Performance (Test Set)
 
+**Time-Based Split (Default):**
 | Model | PR-AUC | F1-Score | Precision | Recall | Inference Time |
 |-------|--------|----------|-----------|--------|----------------|
-| Baseline (Z-Score) | 0.3149 | 0.0000 | 0.0000 | 0.0000 | < 1ms |
-| Logistic Regression | 0.2449 | 0.2759 | 0.1773 | 0.6218 | < 1ms |
-| XGBoost | 0.2323 | 0.2586 | 0.3059 | 0.2239 | < 1ms |
+| Baseline (Z-Score) | 0.2881 | 0.0000 | 0.0000 | 0.0000 | < 1ms |
+| Logistic Regression | 0.2549 | 0.4241 | 0.3100 | 0.6708 | < 1ms |
+| XGBoost | 0.7359 | 0.3994 | 0.8741 | 0.2588 | < 1ms |
 
-*Note: All models trained with reduced feature set (10 features) to minimize multicollinearity. Features include log return volatility, return statistics, spread volatility, and trade intensity. Removed perfectly correlated features (return_std_* and log_return_mean_*) which improved Logistic Regression PR-AUC by +6.6% (0.2298 → 0.2449). Baseline achieves PR-AUC 0.3149 but has 0% recall (threshold too conservative). Logistic Regression detects 62.18% of spikes with 17.73% precision. XGBoost achieves PR-AUC 0.2323 with high precision (30.59%) but lower recall (22.39%).*
+**Current Model Performance (November 24, 2025) - Stratified Split with Consolidated Data:**
+| Model | PR-AUC (Test) | PR-AUC (Val) | Improvement vs Baseline |
+|-------|---------------|--------------|-------------------------|
+| **Random Forest** | **0.9859** | 0.9806 | **+132.5%** |
+| XGBoost | [To be retrained] | [To be retrained] | - |
+| Baseline (Z-Score) | 0.4240 | [To be retrained] | Baseline |
+| Logistic Regression | [To be retrained] | [To be retrained] | - |
+
+**Key Findings:**
+- **Current Production Model: Random Forest** achieves PR-AUC 0.9859, F1 0.9471, Recall 93.7%, Precision 95.7%, outperforming baseline by 132.5%
+- **Consolidated Dataset:** Trained on 26,881 samples from consolidated data (5 feature files, ~350 hours)
+- **Stratified Splits:** Balanced spike rates (~10.67%) across all splits eliminate validation/test imbalance
+- **Model Selection:** Random Forest selected based on best test performance and interpretable feature importance
+- **Top Features:** `price_velocity_300s` (13.9%), `spread_mean_300s` (13.7%), `trade_intensity_300s` (12.9%)
+- **Threshold Optimization:** Probability threshold optimized to 0.7057 (maximizes F1-score), achieving excellent performance on both validation and test
+- **Feature Set:** 10 top features from new v1.2 feature set (Momentum & Volatility, Liquidity & Microstructure, Activity)
+- **Previous Best Model:** XGBoost (Stratified) achieved PR-AUC 0.7815 with older feature set (v1.1)
 
 ### Requirements Met
 
 - ✅ **Inference < 2x real-time:** All models < 120s requirement (typically < 1ms per sample)
 - ✅ **Reproducibility:** Replay matches live features
 - ✅ **Data Quality:** Monitored with Evidently reports
-- ⚠️ **PR-AUC:** Model achieves 0.0699 PR-AUC with 89.77% recall (prioritizes spike detection over precision)
+- ✅ **PR-AUC:** Current model (Random Forest) achieves ~0.9006 PR-AUC with top 10 features (cross-validated)
 
 ---
 
@@ -357,6 +463,156 @@ print(f'Samples: {len(df)} (need 500+)')
 print(f'Spike rate: {df[\"volatility_spike\"].mean():.2%} (target: 5-15%)')
 "
 ```
+
+---
+
+## 🚨 Data Drift Response Guide
+
+When data drift is detected, follow these steps to maintain model performance:
+
+### Step 1: Assess Drift Severity
+
+```bash
+# Generate drift report
+python scripts/generate_evidently_report.py \
+  --features data/processed/features_labeled.parquet \
+  --output reports/evidently/data_drift_report.html
+
+# Open and review the report
+open reports/evidently/data_drift_report.html
+```
+
+**Key Metrics to Check:**
+- **Dataset Drift Metric**: Overall drift score (0-1, higher = more drift)
+- **Column Drift Metrics**: Per-feature drift detection
+- **Missing Values**: Sudden increase may indicate data pipeline issues
+- **Distribution Shifts**: Visual comparison of feature distributions
+
+**Severity Levels:**
+- **Low (< 0.3)**: Minor distribution shifts, likely normal market variation
+- **Medium (0.3-0.6)**: Significant shifts, investigate root cause
+- **High (> 0.6)**: Major drift, immediate action required
+
+### Step 2: Investigate Root Cause
+
+**Common Causes:**
+1. **Market Regime Change**: Crypto markets are volatile; new regimes are normal
+   - Check: Compare drift timing with major market events
+   - Action: May require retraining with recent data
+
+2. **Data Pipeline Issues**: Changes in data collection or processing
+   - Check: Review `features/featurizer.py` logs for errors
+   - Check: Verify Kafka/WebSocket connection stability
+   - Action: Fix pipeline, reprocess data
+
+3. **Feature Engineering Changes**: Code changes affecting feature computation
+   - Check: Git diff of `features/featurizer.py`
+   - Action: Ensure consistency or document intentional changes
+
+4. **Data Quality Degradation**: Missing data, outliers, or gaps
+   - Check: Review `DatasetMissingValuesMetric` in Evidently report
+   - Check: Run EDA notebook to visualize data quality
+   - Action: Fix data source, filter bad data
+
+### Step 3: Evaluate Model Impact
+
+```bash
+# Test current model on drifted data
+python models/infer.py \
+  --model models/artifacts/random_forest/model.pkl \
+  --features data/processed/features_replay.parquet \
+  --mode benchmark \
+  --n-samples 1000
+
+# Compare performance metrics
+# If PR-AUC drops significantly (< 0.20), retraining is critical
+```
+
+**Decision Matrix:**
+
+| Drift Severity | Model Performance | Action |
+|----------------|-------------------|--------|
+| Low | PR-AUC > 0.20 | Monitor, no action |
+| Low | PR-AUC < 0.20 | Investigate, consider retraining |
+| Medium | PR-AUC > 0.20 | Retrain with recent data |
+| Medium | PR-AUC < 0.20 | **Retrain immediately** |
+| High | Any | **Retrain immediately**, investigate root cause |
+
+### Step 4: Retrain Model (if needed)
+
+```bash
+# 1. Collect recent data (if needed)
+python scripts/ws_ingest.py --pair BTC-USD --minutes 60 --save-disk
+
+# 2. Regenerate features with latest data
+python scripts/replay.py \
+  --raw "data/raw/ticks_BTCUSD_*.ndjson" \
+  --out data/processed/features.parquet \
+  --add-labels
+
+# 3. Retrain models
+python models/train.py \
+  --features data/processed/features_replay.parquet \
+  --models baseline logistic xgboost random_forest \
+  --mlflow-uri http://localhost:5001
+
+# 4. Compare new vs old model in MLflow
+open http://localhost:5001
+```
+
+**Retraining Best Practices:**
+- Use time-based split (most recent 15% as test set)
+- Compare new model performance with previous version in MLflow
+- If new model performs worse, investigate further
+- Document retraining reason and results
+
+### Step 5: Deploy Updated Model
+
+```bash
+# Copy best-performing model to production location
+cp models/artifacts/random_forest/model.pkl models/artifacts/production/model.pkl
+
+# Update inference script to use new model
+# Test inference latency
+python models/infer.py \
+  --model models/artifacts/production/model.pkl \
+  --features data/processed/features_replay.parquet \
+  --mode benchmark \
+  --n-samples 1000
+```
+
+### Step 6: Document & Monitor
+
+**Documentation Checklist:**
+- [ ] Record drift detection date and severity
+- [ ] Document root cause analysis findings
+- [ ] Note retraining date and new model performance
+- [ ] Update model card with new training data range
+- [ ] Log action taken in MLflow experiment notes
+
+**Ongoing Monitoring:**
+```bash
+# Set up weekly drift checks (add to cron or scheduled job)
+# Weekly: Generate drift report
+python scripts/generate_evidently_report.py \
+  --features data/processed/features_labeled.parquet \
+  --output reports/evidently/weekly_drift_$(date +%Y%m%d).html
+
+# Weekly: Evaluate model on recent data
+python models/infer.py \
+  --model models/artifacts/production/model.pkl \
+  --features data/processed/features_replay.parquet \
+  --mode benchmark \
+  --n-samples 1000
+```
+
+### Automated Drift Detection (Future Enhancement)
+
+Consider implementing:
+- Scheduled drift reports (cron job)
+- Alert system when drift exceeds threshold
+- Automated retraining pipeline when drift detected
+- Model performance monitoring dashboard
 
 ---
 

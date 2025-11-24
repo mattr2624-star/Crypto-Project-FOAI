@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'crypto-volatility'
+    environment: 'development'
+
+# Alerting configuration
+rule_files:
+  - '/etc/prometheus/alerts.yml'
+
+scrape_configs:
+  - job_name: 'volatility-api'
+    static_configs:
+      - targets: ['api:8000']
+        labels:
+          service: 'volatility-api'
+          job: 'api'
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+

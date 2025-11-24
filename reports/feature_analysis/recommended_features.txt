@@ -1,0 +1,25 @@
+# Recommended Feature Set
+# PR-AUC: 0.9124 ± 0.0162
+# Number of features: 21
+
+log_return_30s
+realized_volatility_30s
+price_velocity_30s
+spread_mean_30s
+order_book_imbalance_30s
+trade_intensity_30s
+volume_velocity_30s
+log_return_60s
+realized_volatility_60s
+price_velocity_60s
+spread_mean_60s
+order_book_imbalance_60s
+trade_intensity_60s
+volume_velocity_60s
+log_return_300s
+realized_volatility_300s
+price_velocity_300s
+spread_mean_300s
+order_book_imbalance_300s
+trade_intensity_300s
+volume_velocity_300s

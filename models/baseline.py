@@ -25,22 +25,16 @@ class BaselineVolatilityDetector:
     """
 
     DEFAULT_FEATURES = [
-        # Volatility features (log returns - more stable for crypto)
-        'log_return_std_30s',  # 30-second log return volatility
-        'log_return_std_60s',  # 60-second log return volatility (best separation: 0.569)
-        'log_return_std_300s', # 300-second log return volatility
-
-        # Return statistics
-        'return_mean_60s',     # 1-minute return mean
-        'return_mean_300s',    # 5-minute return mean
-        'return_min_30s',      # Minimum return in 30s (downside risk)
-
-        # Spread volatility
-        'spread_std_300s',     # 300-second spread volatility
-        'spread_mean_60s',     # 60-second spread mean
-
-        # Trade intensity
-        'tick_count_60s',      # Trading intensity
+    'log_return_300s',
+    'spread_mean_300s',
+    'trade_intensity_300s',
+    'order_book_imbalance_300s',
+    'spread_mean_60s',
+    'order_book_imbalance_60s',
+    'price_velocity_300s',
+    'realized_volatility_300s',
+    'order_book_imbalance_30s',
+    'realized_volatility_60s',
     ]
 
     def __init__(self, threshold: float = 2.0, feature_cols: List[str] = None, eps: float = 1e-8):
