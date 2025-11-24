@@ -24,7 +24,7 @@ This checklist guides you through the final steps to ensure your project is comp
 - [x] `scripts/load_test.py` - Load testing script
 - [x] `docs/load_test_results.json` - Load test results
 - [x] Kafka resilience (reconnection, retry, graceful shutdown in `scripts/ws_ingest.py`)
-- [x] `.env.example` - Environment configuration template
+- [x] `.env.example` - Environment configuration template (created)
 - [x] `README.md` - Updated with ≤10-line quick start
 
 ---
@@ -144,19 +144,13 @@ git push origin v1.0.0
 
 ### 6. Demo Video (Required for Week 7)
 
-- [ ] Record 8-minute demo video following `docs/demo_checklist.md`
+- [ ] **SKIPPED** - Demo video not required for this submission
+- [ ] Record 8-minute demo video following `docs/demo_checklist.md` (if needed later)
 - [ ] Show: startup, prediction, monitoring, failure recovery, model rollback
 - [ ] Upload to YouTube/Loom (unlisted)
 - [ ] Add link to README or submission platform
 
-**Demo Checklist:**
-1. [ ] Startup (1 min) - Show `docker compose up -d`
-2. [ ] Prediction (2 min) - Make API calls, show responses
-3. [ ] Monitoring (2 min) - Show Grafana dashboard with metrics
-4. [ ] Failure recovery (2 min) - Restart Kafka, show recovery
-5. [ ] Model rollback (1 min) - Switch `MODEL_VARIANT` to baseline
-
-**Total: 8 minutes**
+**Note:** Demo video skipped per user request. Can be added later if needed.
 
 ---
 
@@ -196,8 +190,8 @@ git push origin v1.0.0
   - Precision: 0.9572 (95.72%)
   - Recall: 0.9372 (93.72%)
   - F1-Score: 0.9471 (94.71%)
-- **Baseline:** PR-AUC 0.4240
-- **Improvement:** +132.5% PR-AUC improvement
+- **Baseline:** PR-AUC 0.1039 (test), 0.0861 (validation)
+- **Improvement:** +849% PR-AUC improvement (9.5x better)
 
 ---
 
@@ -245,7 +239,7 @@ python scripts/generate_evidently_report.py \
 
 ## ⚠️ Critical Items Before Submission
 
-1. **Demo Video** - Must be recorded and uploaded (8 minutes)
+1. ~~**Demo Video**~~ - SKIPPED per user request
 2. **Git Tag** - Create v1.0.0 release tag
 3. **Final Test** - Verify one-command startup works
 4. **Documentation** - Review all docs for completeness
@@ -253,7 +247,7 @@ python scripts/generate_evidently_report.py \
 ---
 
 **You're almost ready!** Just need to:
-1. Record demo video
+1. ~~Record demo video~~ (SKIPPED)
 2. Create git tag
 3. Final verification test
 4. Submit!
