@@ -699,7 +699,9 @@ def train_random_forest(
         optimal_threshold = (
             thresholds[optimal_idx]
             if optimal_idx < len(thresholds)
-            else thresholds[-1] if len(thresholds) > 0 else 0.1
+            else thresholds[-1]
+            if len(thresholds) > 0
+            else 0.1
         )
 
         # Also compute threshold matching spike rate (10% from EDA) - for reference

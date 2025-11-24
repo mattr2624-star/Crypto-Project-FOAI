@@ -44,7 +44,7 @@ pytest-asyncio>=0.21.0  # Required for async test support
 httpx==0.25.2  # For integration tests
 
 # Code formatting and linting (CI/CD)
-black==23.12.1
+black>=24.8.0
 ruff==0.1.9
 
 # FastAPI and API dependencies (Week 4)

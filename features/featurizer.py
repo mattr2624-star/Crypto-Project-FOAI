@@ -476,13 +476,13 @@ class FeatureComputer:
                             np.mean(obi_values)
                         )
                     else:
-                        features[f"order_book_imbalance_{window}s"] = (
-                            0.5  # Neutral (50/50)
-                        )
+                        features[
+                            f"order_book_imbalance_{window}s"
+                        ] = 0.5  # Neutral (50/50)
                 else:
-                    features[f"order_book_imbalance_{window}s"] = (
-                        0.5  # Neutral when data unavailable
-                    )
+                    features[
+                        f"order_book_imbalance_{window}s"
+                    ] = 0.5  # Neutral when data unavailable
 
                 # ============================================================
                 # 3. ACTIVITY (Market Energy)
