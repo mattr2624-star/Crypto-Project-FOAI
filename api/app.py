@@ -7,15 +7,12 @@ import os
 import time
 import logging
 import uuid
-import json
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Optional
 
 import pandas as pd
-import numpy as np
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
@@ -303,7 +300,7 @@ async def health():
         # Check Kafka (simplified - just check if we can import)
         kafka_status = True
         try:
-            from kafka import KafkaConsumer
+            import kafka  # noqa: F401
             # Could add actual connection check here
         except ImportError:
             kafka_status = False
@@ -351,9 +348,6 @@ async def predict(request: Request, feature_request: FeatureRequest):
         # Convert features to DataFrame (single row)
         # Add required columns that prepare_features expects
         features_dict = feature_request.features.copy()
-        # Convert features to DataFrame (single row)
-        # Add required columns that prepare_features expects
-        features_dict = request.features.copy()
         
         # Ensure timestamp exists (required by prepare_features)
         if 'timestamp' not in features_dict:
