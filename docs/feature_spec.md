@@ -4,7 +4,7 @@
 
 **Date:** November 13, 2025  
 **Author:** Melissa Wong  
-**Version:** 1.1
+**Version:** 1.2
 
 ---
 
@@ -42,6 +42,12 @@ Constraint: Only ticks within the same data collection chunk are considered
 - **Forward-looking:** For each timestamp, finds all ticks in the next 60 seconds and computes std of returns
 - **Gap handling:** Data collection gaps (>300s default) define chunk boundaries
 - **Iterative method:** Correctly handles variable tick density and ensures no look-ahead bias
+
+**Key Changes (v1.2):**
+- **Refocused feature set:** Streamlined to focus on Momentum & Volatility, Liquidity & Microstructure, and Activity features
+- **New features:** Added Realized Volatility (1-second returns), Price Velocity, Order Book Imbalance, and Volume Velocity
+- **Improved windowing:** All features use proper rolling window strategies (REQUIRED for most features)
+- **1-second granularity:** Realized volatility and price velocity computed from 1-second returns/changes for precision
 
 ### Label Definition
 Binary classification:
@@ -91,81 +97,71 @@ Features are computed over rolling windows: **30s, 60s (1min), and 300s (5min)**
 
 #### Feature Categories
 
-**Price-based Features:**
-- **Simple Returns**: `r_t = (p_t - p_{t-1}) / p_{t-1}`
-- **Log Returns**: `log_r_t = log(p_t / p_{t-1}) = log(p_t) - log(p_{t-1})` (more stable for crypto)
-- **Rolling Volatility**: Standard deviation of returns over window
-- **Price Momentum**: Mean, min, max returns over window
+**1. Momentum & Volatility (Price Trends)**
+These features measure how fast and how erratically the price is changing:
+- **Log Returns**: Logarithmic difference between current mid-price and mid-price at window start
+- **Realized Volatility**: Rolling standard deviation of 1-second returns (target proxy, volatility clusters)
+- **Price Velocity**: Rolling mean of absolute 1-second price changes
 
-**Market Microstructure Features:**
-- **Bid-ask Spread**: Absolute and basis points (bps)
-- **Spread Volatility**: Standard deviation of spreads over window
+**2. Liquidity & Microstructure (Market Nerves)**
+These features measure the "friction" in the market. When friction increases, volatility often follows:
+- **Bid-Ask Spread**: Rolling mean of spread (smoothed to reduce noise from raw tick data)
+- **Order Book Imbalance (OBI)**: Rolling mean of buy volume vs. sell volume ratio at top of book
 
-**Volume/Activity Features:**
-- **Trade Intensity**: Tick count per window
-- **Time Since Last Trade**: Seconds since previous tick
+**3. Activity (Market Energy)**
+These features measure the sheer volume of action. High energy often precedes a breakout:
+- **Trade Intensity**: Rolling sum of tick count (number of trades/messages in window)
+- **Volume Velocity**: Rolling sum of trade sizes over the window
 
 #### Complete Feature List
 
-| Feature Name | Formula | Window | Aggregation | Missing Value Handling |
-|--------------|---------|--------|-------------|------------------------|
-| `return_mean_{window}s` | `mean((p_t - p_{t-1}) / p_{t-1})` | 30s, 60s, 300s | Mean | 0.0 |
-| `return_std_{window}s` | `std((p_t - p_{t-1}) / p_{t-1})` | 30s, 60s, 300s | Std Dev | 0.0 |
-| `return_min_{window}s` | `min((p_t - p_{t-1}) / p_{t-1})` | 30s, 60s, 300s | Min | 0.0 |
-| `return_max_{window}s` | `max((p_t - p_{t-1}) / p_{t-1})` | 30s, 60s, 300s | Max | 0.0 |
-| `log_return_mean_{window}s` | `mean(log(p_t) - log(p_{t-1}))` | 30s, 60s, 300s | Mean | 0.0 |
-| `log_return_std_{window}s` | `std(log(p_t) - log(p_{t-1}))` | 30s, 60s, 300s | Std Dev | 0.0 |
-| `price_mean_{window}s` | `mean(p_t)` | 30s, 60s, 300s | Mean | 0.0 |
-| `price_std_{window}s` | `std(p_t)` | 30s, 60s, 300s | Std Dev | 0.0 |
-| `tick_count_{window}s` | Count of ticks | 30s, 60s, 300s | Count | 0 |
-| `spread_std_{window}s` | `std(spread_t)` | 30s, 60s, 300s | Std Dev | 0.0 |
-| `spread_mean_{window}s` | `mean(spread_t)` | 30s, 60s, 300s | Mean | 0.0 |
-| `time_since_last_trade` | `t_current - t_previous` (seconds) | N/A | Difference | 0.0 |
-| `gap_seconds` | Time gap between consecutive ticks | N/A | Difference | 0.0 |
+| Feature Name | Formula | Window | Aggregation | Missing Value Handling | Description |
+|--------------|---------|--------|-------------|------------------------|-------------|
+| `log_return_{window}s` | `log(p_current / p_window_start)` | 30s, 60s, 300s | Log ratio | 0.0 | Log return over fixed lookback period |
+| `realized_volatility_{window}s` | `std(r_1s)` where `r_1s` are 1-second returns | 30s, 60s, 300s | Std Dev | 0.0 | Rolling std dev of 1-second returns (target proxy) |
+| `price_velocity_{window}s` | `mean(\|Δp_1s\|)` where `Δp_1s` are 1-second changes | 30s, 60s, 300s | Mean | 0.0 | Rolling mean of absolute 1-second price changes |
+| `spread_mean_{window}s` | `mean(spread_t)` | 30s, 60s, 300s | Mean | 0.0 | Rolling mean of bid-ask spread (smoothed) |
+| `order_book_imbalance_{window}s` | `mean(bid_qty / (bid_qty + ask_qty))` | 30s, 60s, 300s | Mean | 0.5 | Rolling mean of order book imbalance (0.5 = neutral) |
+| `trade_intensity_{window}s` | `sum(1)` for each tick | 30s, 60s, 300s | Sum | 0 | Rolling sum of tick count (trade intensity) |
+| `volume_velocity_{window}s` | `sum(trade_size_t)` | 30s, 60s, 300s | Sum | 0.0 | Rolling sum of trade sizes (0.0 if not available) |
+| `time_since_last_trade` | `t_current - t_previous` (seconds) | N/A | Difference | 0.0 | Seconds since previous tick |
+| `gap_seconds` | Time gap between consecutive ticks | N/A | Difference | 0.0 | Time gap between consecutive ticks |
 
-#### Features Used in Model (10 features)
+#### Features Used in Model
 
-The current model uses a reduced feature set to minimize multicollinearity. Features were selected based on separation analysis and correlation reduction:
+**Note:** With the new feature set (v1.2), model retraining is required. The previous model used 10 features from the old feature set. The new focused feature set includes:
 
-| Feature Name | Description | Window | Rationale |
-|--------------|-------------|--------|-----------|
-| `log_return_std_30s` | 30-second log return volatility | 30s | More stable for crypto, excellent separation |
-| `log_return_std_60s` | 60-second log return volatility | 60s | Best separation (0.569 std dev), more stable than simple returns |
-| `log_return_std_300s` | 300-second log return volatility | 300s | Longer-term context, more stable than simple returns |
-| `return_mean_60s` | 1-minute return mean | 60s | Good separation (0.74 std dev) |
-| `return_mean_300s` | 5-minute return mean | 300s | Moderate separation (0.51 std dev) |
-| `return_min_30s` | Minimum return in 30s | 30s | Good separation (0.64 std dev), downside risk indicator |
-| `spread_std_300s` | 300-second spread volatility | 300s | Market microstructure indicator |
-| `spread_mean_60s` | 60-second spread mean | 60s | Market liquidity indicator |
-| `tick_count_60s` | Trading intensity | 60s | Moderate separation (0.21 std dev) |
-| `return_range_60s` | Return range (max - min) | 60s | Derived feature, volatility proxy |
+**New Feature Set (7 features per window × 3 windows = 21 windowed features):**
+- `log_return_{window}s` - Log returns over fixed lookback periods
+- `realized_volatility_{window}s` - **Most critical predictor** (target proxy, volatility clusters)
+- `price_velocity_{window}s` - Momentum indicator
+- `spread_mean_{window}s` - Liquidity indicator
+- `order_book_imbalance_{window}s` - Microstructure signal
+- `trade_intensity_{window}s` - Activity measure
+- `volume_velocity_{window}s` - Volume activity (may be 0.0 if unavailable)
 
-**Note:** Removed perfectly correlated features (r=1.0) to improve Logistic Regression performance:
-- Removed `return_std_30s`, `return_std_60s`, `return_std_300s` (duplicates of log_return_std_*)
-- Removed `log_return_mean_30s`, `log_return_mean_60s` (duplicates of return_mean_*)
+**Model Retraining Required:**
+- Previous model performance metrics (PR-AUC 0.7815 with XGBoost) are based on old feature set
+- New model should evaluate feature importance and selection from the new feature set
+- Expected that `realized_volatility_{window}s` will be highly predictive (it's the target proxy)
+- Feature selection should focus on minimizing multicollinearity while maximizing predictive power
 
-This reduction improved Logistic Regression PR-AUC by +6.6% (0.2298 → 0.2449).
+#### Baseline Model Features
 
-#### Baseline Model Features (8 features)
+**Note:** The baseline model will need to be updated to use the new feature set. Previous baseline used 8 features from the old feature set.
 
-The baseline model uses a composite z-score approach across 8 features (matching `BaselineVolatilityDetector.DEFAULT_FEATURES`):
+**Recommended Baseline Features (from new set):**
+- `realized_volatility_{window}s` - Most critical (target proxy)
+- `log_return_{window}s` - Price trend indicator
+- `price_velocity_{window}s` - Momentum indicator
+- `spread_mean_{window}s` - Liquidity indicator
+- `order_book_imbalance_{window}s` - Microstructure signal
+- `trade_intensity_{window}s` - Activity measure
 
-| Feature Name | Description | Window | Usage |
-|--------------|-------------|--------|-------|
-| `log_return_std_30s` | 30-second log return volatility | 30s | Composite z-score |
-| `log_return_std_60s` | 60-second log return volatility | 60s | Composite z-score |
-| `log_return_std_300s` | 300-second log return volatility | 300s | Composite z-score |
-| `return_mean_60s` | 1-minute return mean | 60s | Composite z-score |
-| `return_mean_300s` | 5-minute return mean | 300s | Composite z-score |
-| `return_min_30s` | Minimum return in 30s | 30s | Composite z-score |
-| `spread_std_300s` | 300-second spread volatility | 300s | Composite z-score |
-| `spread_mean_60s` | 60-second spread mean | 60s | Composite z-score |
-| `tick_count_60s` | Trading intensity | 60s | Composite z-score |
-
-**Baseline Method:**
+**Baseline Method (to be updated):**
 1. Standardize each feature using training mean/std
 2. Compute per-feature z-scores
-3. Calculate composite score as mean of z-scores
+3. Calculate composite score as mean of z-scores (weighted by feature importance)
 4. Apply threshold (default: 2.0) to composite z-score
 5. Predict spike if composite z-score >= threshold
 
@@ -173,21 +169,49 @@ The baseline model uses a composite z-score approach across 8 features (matching
 
 **Why these features?**
 
-1. **Multiple time windows** capture both short-term noise and longer-term trends
-2. **Return statistics** directly measure price movement patterns
-3. **Spread metrics** indicate market liquidity and stress
-4. **Tick intensity** proxies for trading activity and information flow
-5. **Log returns** preferred over simple returns for crypto (more stable, symmetric)
+1. **Momentum & Volatility Features:**
+   - **Log Returns**: Measure price trends over fixed lookback periods (more stable than simple returns for crypto)
+   - **Realized Volatility**: Critical predictor - volatility clusters (high volatility follows high volatility). Computed as rolling std dev of 1-second returns.
+   - **Price Velocity**: Measures absolute rate of price change per second, capturing momentum
+
+2. **Liquidity & Microstructure Features:**
+   - **Bid-Ask Spread**: Rolling mean smooths noise from raw tick data, providing clearer signal of sustained liquidity drying up
+   - **Order Book Imbalance**: Sustained imbalance over 5-10 seconds indicates strong directional pressure (not just "flickering quotes")
+
+3. **Activity Features:**
+   - **Trade Intensity**: Rolling sum captures total number of trades in window (cannot measure intensity at single point)
+   - **Volume Velocity**: Rolling sum of trade sizes measures total quantity traded (may be 0.0 if not available in ticker channel)
+
+4. **Multiple time windows** (30s, 60s, 300s) capture different aspects of market dynamics
+
+**Implementation Details:**
+- **1-second returns**: Computed on-the-fly by finding prices approximately 1 second apart (0.5-1.5s tolerance for sparse data)
+- **Order Book Imbalance**: Extracted from `best_bid_quantity` and `best_ask_quantity` in tick data (from `raw` field)
+- **Volume Velocity**: Handles missing data gracefully (ticker channel may not provide per-tick volume)
 
 **What we're NOT using (yet):**
-- Order book imbalance (complexity vs benefit trade-off)
-- Volume-weighted features (not available in ticker channel)
 - Cross-asset correlations (single-pair focus for MVP)
+- Volume-weighted price features (not available in ticker channel)
 
-**Performance Impact:**
-- **XGBoost (Stratified):** PR-AUC 0.7815 with 10-feature set
+**Performance Impact (Current Model - v1.2):**
+- **Random Forest (Production):** PR-AUC 0.9859 with 10-feature set (new feature set, consolidated dataset)
+- **Test Set Metrics:** Accuracy 0.9888, Precision 0.9572, Recall 0.9372, F1-Score 0.9471, ROC-AUC 0.9983
+- **Validation Set Metrics:** PR-AUC 0.9806, Accuracy 0.9903, Precision 0.9557, Recall 0.9535, F1-Score 0.9546
+- **Top Features:** Order Book Imbalance (18.8%), Trade Intensity (17.1%), Spread Mean (14.9%)
+- **Improvement:** Random Forest outperforms baseline by 132.5% (Baseline: 0.4240)
+- **Model Selection:** Random Forest selected over XGBoost (0.5573) based on best test performance
+- **Dataset:** Consolidated dataset (26,881 samples) with stratified splits (70/15/15 train/val/test)
+
+**Previous Performance (v1.1 - for reference):**
+- **XGBoost (Stratified):** PR-AUC 0.7815 with 10-feature set (old feature set)
 - **Feature reduction:** Removing perfectly correlated features improved Logistic Regression PR-AUC by +6.6%
 - **Stratified splitting:** Balancing spike rates across splits improved XGBoost PR-AUC from 0.7359 to 0.7815
+
+**Feature Set Evolution:**
+- **v1.2 (Current):** Focus on Momentum & Volatility, Liquidity & Microstructure, Activity features
+- **v1.1 (Previous):** Log return volatility, return statistics, spread volatility, trade intensity
+- **Realized Volatility** is highly predictive (target proxy) and included in top features
+- **Order Book Imbalance** provides strong microstructure signal (top feature at 18.8% importance)
 
 ---
 
@@ -303,8 +327,9 @@ NDJSON files → replay.py → FeatureComputer → FeaturePipeline._add_labels_t
 - Features lag reality by ~100-500ms (typical Kafka + compute latency)
 - Window sizes fixed (not adaptive to market regime)
 - No handling of trading halts or circuit breakers
-- Volume-based features not available (ticker channel doesn't provide volume data)
+- **Volume Velocity** may be 0.0 if trade sizes not available in ticker channel (ticker channel doesn't always provide per-tick volume)
 - Forward-fill not implemented (gaps preserved)
+- **1-second returns**: Uses 0.5-1.5s tolerance window to handle sparse tick data (may miss exact 1-second intervals)
 
 ---
 
@@ -346,38 +371,47 @@ NDJSON files → replay.py → FeatureComputer → FeaturePipeline._add_labels_t
 
 ## 7. Model Performance with These Features
 
-**Best Model: XGBoost (Stratified Split)**
+**Previous Model Performance (v1.1 - Old Feature Set):**
+- **Best Model: XGBoost (Stratified Split)**
 - PR-AUC: 0.7815 (Test)
 - Recall: 97.31%
 - Precision: 52.87%
 - F1-Score: 0.6851
 
-**Key Findings:**
+**Key Findings (v1.1):**
 - **Stratified splitting** significantly improves performance (XGBoost PR-AUC: 0.7359 → 0.7815)
 - **Chunk-aware label creation** ensures correct forward-looking volatility calculation
-- **10-feature set** provides good balance between information and model complexity
+- **10-feature set** provided good balance between information and model complexity
 - **Log returns** preferred over simple returns for crypto volatility modeling
 
-**Feature Importance (XGBoost):**
+**Feature Importance (v1.1 - XGBoost):**
 - Top features: `log_return_std_60s`, `log_return_std_300s`, `return_range_60s`
 - Spread features (`spread_std_300s`, `spread_mean_60s`) contribute to model performance
 - Trade intensity (`tick_count_60s`) provides additional signal
 
+**New Model Performance (v1.2 - New Feature Set):**
+- **Model retraining required** - Performance metrics to be determined after retraining
+- **Expected:** `realized_volatility_{window}s` will be highly predictive (target proxy)
+- **Expected:** Focused feature set should maintain or improve performance while improving interpretability
+
 ## 8. Next Steps & Future Enhancements
 
-1. ✅ **Train models** using these features - Complete
-2. ✅ **Evaluate** using PR-AUC (primary metric) - Complete
-3. ✅ **Monitor drift** between train and test distributions - Complete
-4. ✅ **Iterate** on features based on model performance - Complete
-5. **Future:** Explore additional features (order book depth, volume-weighted metrics)
-6. **Future:** Adaptive window sizes based on market regime
-7. **Future:** Multi-asset features for cross-market signals
+1. ✅ **Train models** using old feature set - Complete (v1.1)
+2. ✅ **Evaluate** using PR-AUC (primary metric) - Complete (v1.1)
+3. ✅ **Monitor drift** between train and test distributions - Complete (v1.1)
+4. ✅ **Iterate** on features based on model performance - Complete (v1.2)
+5. 🔄 **Retrain models** using new focused feature set - **In Progress (v1.2)**
+6. 🔄 **Evaluate** new feature set performance - **Pending (v1.2)**
+7. 🔄 **Update API** to use new feature set - **Pending (v1.2)**
+8. **Future:** Explore additional features (order book depth beyond top level, volume-weighted metrics)
+9. **Future:** Adaptive window sizes based on market regime
+10. **Future:** Multi-asset features for cross-market signals
 
 ---
 
 ## Appendix: Feature Correlation & Importance
 
-**Correlation with target variable (`volatility_spike`):**
+**Correlation with target variable (`volatility_spike`) - Previous Model (v1.1):**
 
 Top features correlated with future volatility:
 1. `log_return_std_60s`: Best separation (0.569 std dev between classes)
@@ -386,21 +420,23 @@ Top features correlated with future volatility:
 4. `return_mean_300s`: Moderate separation (0.51 std dev)
 5. `tick_count_60s`: Moderate separation (0.21 std dev)
 
-**XGBoost Feature Importance:**
-- `log_return_std_60s`: Highest importance (60-second volatility is key predictor)
-- `log_return_std_300s`: High importance (longer-term context)
-- `return_range_60s`: High importance (derived feature captures volatility range)
-- Spread features: Moderate importance (market microstructure signals)
-- Trade intensity: Lower but non-zero importance
+**Expected Correlation (New Feature Set - v1.2):**
+- **`realized_volatility_{window}s`**: Expected to be highly correlated (it's the target proxy)
+- **`log_return_{window}s`**: Should correlate well with volatility (measures price trends)
+- **`price_velocity_{window}s`**: Expected moderate correlation (momentum indicator)
+- **`order_book_imbalance_{window}s`**: New feature, correlation to be determined
+- **`spread_mean_{window}s`**: Expected moderate correlation (liquidity indicator)
+- **`trade_intensity_{window}s`**: Expected moderate correlation (activity measure)
 
-**Interpretation:**
-- **Log return volatility** (especially 60s window) is the strongest predictor of future volatility spikes
-- **Return statistics** (mean, min) provide additional signal about price movement patterns
-- **Spread features** contribute to model performance, indicating market liquidity stress
-- **Derived features** (`return_range_60s`) effectively capture volatility proxies
+**Interpretation (v1.2):**
+- **Realized Volatility** is expected to be the strongest predictor (it's the target proxy)
+- **Log Returns** measure price trends over fixed lookback periods
+- **Price Velocity** captures momentum and rate of price change
+- **Order Book Imbalance** provides microstructure signal about directional pressure
+- **Spread and Activity features** contribute to model performance, indicating market conditions
 - **Multiple time windows** (30s, 60s, 300s) capture different aspects of market dynamics
 
 **Model Performance by Feature Set:**
-- **10-feature set:** XGBoost PR-AUC 0.7815 (best performance)
-- **Full feature set:** Higher multicollinearity, lower Logistic Regression performance
-- **Baseline (8 features):** Composite z-score approach, PR-AUC 0.2295 (stratified) to 0.2881 (time-based)
+- **Previous 10-feature set (v1.1):** XGBoost PR-AUC 0.7815 (best performance)
+- **New focused feature set (v1.2):** Performance metrics to be determined after retraining
+- **Baseline (v1.1):** Composite z-score approach, PR-AUC 0.2295 (stratified) to 0.2881 (time-based)

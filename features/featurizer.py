@@ -49,6 +49,15 @@ class FeatureComputer:
         self.timestamps_buffer = deque(maxlen=max_buffer_size)
         self.spreads_buffer = deque(maxlen=max_buffer_size)  # For spread volatility
         
+        # Note: 1-second returns are computed on-the-fly in compute_features to avoid buffer alignment issues
+        
+        # Buffers for order book data (for Order Book Imbalance)
+        self.bid_quantities_buffer = deque(maxlen=max_buffer_size)
+        self.ask_quantities_buffer = deque(maxlen=max_buffer_size)
+        
+        # Buffers for trade sizes (for Volume Velocity)
+        self.trade_sizes_buffer = deque(maxlen=max_buffer_size)
+        
         # Track last tick time for time-since-last-trade feature
         self.last_tick_time = None
         
@@ -97,6 +106,31 @@ class FeatureComputer:
         except (ValueError, TypeError):
             return None
     
+    def _get_order_book_quantities(self, tick: Dict[str, Any]) -> tuple:
+        """Extract bid and ask quantities from tick data."""
+        try:
+            # Try to get from raw field first (Coinbase Advanced Trade format)
+            raw = tick.get('raw', {})
+            bid_qty = raw.get('best_bid_quantity') or tick.get('best_bid_quantity')
+            ask_qty = raw.get('best_ask_quantity') or tick.get('best_ask_quantity')
+            
+            if bid_qty is not None and ask_qty is not None:
+                return float(bid_qty), float(ask_qty)
+            return None, None
+        except (ValueError, TypeError):
+            return None, None
+    
+    def _get_trade_size(self, tick: Dict[str, Any]) -> Optional[float]:
+        """Extract trade size from tick data."""
+        try:
+            # Try multiple possible field names
+            size = tick.get('size') or tick.get('volume') or tick.get('trade_size')
+            if size is not None:
+                return float(size)
+            return None
+        except (ValueError, TypeError):
+            return None
+    
     def add_tick(self, tick: Dict[str, Any]):
         """Add a new tick to the buffer."""
         # Parse timestamp first to validate ordering
@@ -118,6 +152,10 @@ class FeatureComputer:
         # Add tick to buffers
         self.ticks_buffer.append(tick)
         
+        # Store timestamp first (needed for 1-second return calculation)
+        self.timestamps_buffer.append(ts)
+        self.last_tick_time = ts
+        
         # Extract and store price
         midprice = self._get_midprice(tick)
         if midprice:
@@ -128,37 +166,115 @@ class FeatureComputer:
         if spread is not None:
             self.spreads_buffer.append(spread)
         
-        # Store timestamp
-        self.timestamps_buffer.append(ts)
-        self.last_tick_time = ts
+        # Store order book quantities for Order Book Imbalance
+        bid_qty, ask_qty = self._get_order_book_quantities(tick)
+        if bid_qty is not None:
+            self.bid_quantities_buffer.append(bid_qty)
+        if ask_qty is not None:
+            self.ask_quantities_buffer.append(ask_qty)
+        
+        # Store trade size for Volume Velocity
+        trade_size = self._get_trade_size(tick)
+        if trade_size is not None:
+            self.trade_sizes_buffer.append(trade_size)
     
     def _get_window_data(self, window_seconds: int) -> tuple:
         """
         Get data within the specified time window.
         
         Returns:
-            (prices_in_window, ticks_in_window, spreads_in_window)
+            (prices_in_window, timestamps_in_window, ticks_in_window, spreads_in_window,
+             bid_quantities_in_window, ask_quantities_in_window, trade_sizes_in_window)
         """
         if len(self.timestamps_buffer) < 2:
-            return [], [], []
+            return [], [], [], [], [], [], []
         
         current_time = self.timestamps_buffer[-1]
         cutoff_time = current_time - pd.Timedelta(seconds=window_seconds)
         
         prices_in_window = []
+        timestamps_in_window = []
         ticks_in_window = []
         spreads_in_window = []
+        bid_quantities_in_window = []
+        ask_quantities_in_window = []
+        trade_sizes_in_window = []
         
         for i, ts in enumerate(self.timestamps_buffer):
             if ts >= cutoff_time:
+                timestamps_in_window.append(ts)
                 if i < len(self.prices_buffer):
                     prices_in_window.append(self.prices_buffer[i])
                 if i < len(self.ticks_buffer):
                     ticks_in_window.append(self.ticks_buffer[i])
                 if i < len(self.spreads_buffer):
                     spreads_in_window.append(self.spreads_buffer[i])
+                if i < len(self.bid_quantities_buffer):
+                    bid_quantities_in_window.append(self.bid_quantities_buffer[i])
+                if i < len(self.ask_quantities_buffer):
+                    ask_quantities_in_window.append(self.ask_quantities_buffer[i])
+                if i < len(self.trade_sizes_buffer):
+                    trade_sizes_in_window.append(self.trade_sizes_buffer[i])
         
-        return prices_in_window, ticks_in_window, spreads_in_window
+        return (prices_in_window, timestamps_in_window, ticks_in_window, spreads_in_window,
+                bid_quantities_in_window, ask_quantities_in_window, trade_sizes_in_window)
+    
+    def _compute_one_second_returns(self, prices: list, timestamps: list) -> list:
+        """
+        Compute 1-second log returns from prices and timestamps.
+        
+        For each price, finds the price approximately 1 second ago and computes log return.
+        """
+        one_second_returns = []
+        
+        for i in range(len(prices)):
+            if i == 0:
+                continue  # Skip first price (no previous price)
+            
+            current_price = prices[i]
+            current_time = timestamps[i]
+            
+            # Find price approximately 1 second ago
+            for j in range(i - 1, -1, -1):
+                prev_time = timestamps[j]
+                time_diff = (current_time - prev_time).total_seconds()
+                
+                # If we find a price within 0.5-1.5 seconds, use it
+                if 0.5 <= time_diff <= 1.5:
+                    prev_price = prices[j]
+                    if prev_price > 0 and current_price > 0:
+                        log_return = np.log(current_price / prev_price)
+                        one_second_returns.append(log_return)
+                    break
+        
+        return one_second_returns
+    
+    def _compute_one_second_price_changes(self, prices: list, timestamps: list) -> list:
+        """
+        Compute absolute 1-second price changes from prices and timestamps.
+        """
+        one_second_changes = []
+        
+        for i in range(len(prices)):
+            if i == 0:
+                continue  # Skip first price
+            
+            current_price = prices[i]
+            current_time = timestamps[i]
+            
+            # Find price approximately 1 second ago
+            for j in range(i - 1, -1, -1):
+                prev_time = timestamps[j]
+                time_diff = (current_time - prev_time).total_seconds()
+                
+                # If we find a price within 0.5-1.5 seconds, use it
+                if 0.5 <= time_diff <= 1.5:
+                    prev_price = prices[j]
+                    abs_change = abs(current_price - prev_price)
+                    one_second_changes.append(abs_change)
+                    break
+        
+        return one_second_changes
     
     def _validate_timestamp_order(self, new_timestamp: pd.Timestamp) -> bool:
         """
@@ -211,6 +327,11 @@ class FeatureComputer:
         """
         Compute all features for the current tick.
         
+        Focused on:
+        1. Momentum & Volatility: Log Returns, Realized Volatility, Price Velocity
+        2. Liquidity & Microstructure: Bid-Ask Spread, Order Book Imbalance
+        3. Activity: Trade Intensity, Volume Velocity
+        
         Returns:
             Dictionary of features
         """
@@ -224,54 +345,117 @@ class FeatureComputer:
             'spread_bps': self._get_spread_bps(current_tick),
         }
         
+        current_price = self._get_midprice(current_tick)
+        current_time = self.timestamps_buffer[-1] if len(self.timestamps_buffer) > 0 else None
+        
         # Compute windowed features
         for window in self.window_sizes:
-            prices, ticks, spreads = self._get_window_data(window)
+            (prices, timestamps, ticks, spreads,
+             bid_quantities, ask_quantities, trade_sizes) = self._get_window_data(window)
             
-            if len(prices) > 1:
-                # Simple returns (for backward compatibility)
-                returns = np.diff(prices) / prices[:-1]
-                features[f'return_mean_{window}s'] = float(np.mean(returns))
-                features[f'return_std_{window}s'] = float(np.std(returns))
-                features[f'return_min_{window}s'] = float(np.min(returns))
-                features[f'return_max_{window}s'] = float(np.max(returns))
+            if len(prices) > 1 and current_price:
+                # ============================================================
+                # 1. MOMENTUM & VOLATILITY (Price Trends)
+                # ============================================================
                 
-                # Log returns (more stable for crypto, recommended best practice)
-                # log_return = log(p_t / p_{t-1}) = log(p_t) - log(p_{t-1})
-                log_prices = np.log(prices)
-                log_returns = np.diff(log_prices)
-                features[f'log_return_mean_{window}s'] = float(np.mean(log_returns))
-                features[f'log_return_std_{window}s'] = float(np.std(log_returns))
+                # Feature: Log Returns (with fixed lookback periods)
+                # Calculate log return over the window: log(current_price / price_window_start)
+                window_start_price = prices[0]
+                if window_start_price > 0:
+                    log_return = np.log(current_price / window_start_price)
+                    features[f'log_return_{window}s'] = float(log_return)
+                else:
+                    features[f'log_return_{window}s'] = 0.0
                 
-                # Price statistics
-                features[f'price_mean_{window}s'] = float(np.mean(prices))
-                features[f'price_std_{window}s'] = float(np.std(prices))
+                # Feature: Realized Volatility (Target Proxy)
+                # Rolling standard deviation of 1-second returns over the window
+                one_sec_returns = self._compute_one_second_returns(prices, timestamps)
+                if len(one_sec_returns) > 1:
+                    features[f'realized_volatility_{window}s'] = float(np.std(one_sec_returns))
+                elif len(one_sec_returns) == 1:
+                    features[f'realized_volatility_{window}s'] = 0.0
+                else:
+                    # Fallback: compute from window returns if 1-second returns not available
+                    log_prices = np.log(prices)
+                    log_returns = np.diff(log_prices)
+                    if len(log_returns) > 0:
+                        features[f'realized_volatility_{window}s'] = float(np.std(log_returns))
+                    else:
+                        features[f'realized_volatility_{window}s'] = 0.0
                 
-                # Trade intensity (tick count)
-                features[f'tick_count_{window}s'] = len(ticks)
+                # Feature: Price Velocity
+                # Rolling mean of absolute 1-second price changes
+                one_sec_price_changes = self._compute_one_second_price_changes(prices, timestamps)
+                if len(one_sec_price_changes) > 0:
+                    features[f'price_velocity_{window}s'] = float(np.mean(one_sec_price_changes))
+                else:
+                    # Fallback: compute from window price changes
+                    if len(prices) > 1:
+                        abs_changes = [abs(prices[i] - prices[i-1]) for i in range(1, len(prices))]
+                        if abs_changes:
+                            features[f'price_velocity_{window}s'] = float(np.mean(abs_changes))
+                        else:
+                            features[f'price_velocity_{window}s'] = 0.0
+                    else:
+                        features[f'price_velocity_{window}s'] = 0.0
                 
-                # Spread volatility (market microstructure feature)
-                if len(spreads) > 1:
-                    features[f'spread_std_{window}s'] = float(np.std(spreads))
+                # ============================================================
+                # 2. LIQUIDITY & MICROSTRUCTURE (Market Nerves)
+                # ============================================================
+                
+                # Feature: Bid-Ask Spread (Rolling Mean)
+                # Already computed as spread_mean, but ensure it's present
+                if len(spreads) > 0:
                     features[f'spread_mean_{window}s'] = float(np.mean(spreads))
                 else:
-                    features[f'spread_std_{window}s'] = 0.0
                     features[f'spread_mean_{window}s'] = 0.0
+                
+                # Feature: Order Book Imbalance (OBI)
+                # Ratio of buy volume vs. sell volume at the top of the book
+                # OBI = bid_volume / (bid_volume + ask_volume)
+                if len(bid_quantities) > 0 and len(ask_quantities) > 0:
+                    # Use rolling mean of OBI values
+                    obi_values = []
+                    for i in range(min(len(bid_quantities), len(ask_quantities))):
+                        bid_qty = bid_quantities[i]
+                        ask_qty = ask_quantities[i]
+                        total_qty = bid_qty + ask_qty
+                        if total_qty > 0:
+                            obi = bid_qty / total_qty
+                            obi_values.append(obi)
+                    
+                    if obi_values:
+                        features[f'order_book_imbalance_{window}s'] = float(np.mean(obi_values))
+                    else:
+                        features[f'order_book_imbalance_{window}s'] = 0.5  # Neutral (50/50)
+                else:
+                    features[f'order_book_imbalance_{window}s'] = 0.5  # Neutral when data unavailable
+                
+                # ============================================================
+                # 3. ACTIVITY (Market Energy)
+                # ============================================================
+                
+                # Feature: Trade Intensity (Rolling Sum of Tick Count)
+                # Total number of trades (messages) received in the window
+                features[f'trade_intensity_{window}s'] = len(ticks)
+                
+                # Feature: Volume Velocity
+                # Rolling sum of trade sizes over the window
+                if len(trade_sizes) > 0:
+                    features[f'volume_velocity_{window}s'] = float(np.sum(trade_sizes))
+                else:
+                    # Trade size not available in ticker channel, set to 0
+                    features[f'volume_velocity_{window}s'] = 0.0
+                
             else:
-                # Not enough data for this window
-                # Set to 0 for consistency (handled downstream as missing data)
-                # This occurs for the first few ticks before sufficient history accumulates
-                features[f'return_mean_{window}s'] = 0.0
-                features[f'return_std_{window}s'] = 0.0
-                features[f'return_min_{window}s'] = 0.0
-                features[f'return_max_{window}s'] = 0.0
-                features[f'log_return_mean_{window}s'] = 0.0
-                features[f'log_return_std_{window}s'] = 0.0
-                features[f'price_mean_{window}s'] = 0.0
-                features[f'price_std_{window}s'] = 0.0
-                features[f'tick_count_{window}s'] = 0
-                features[f'spread_std_{window}s'] = 0.0
+                # Not enough data for this window - set all features to default values
+                features[f'log_return_{window}s'] = 0.0
+                features[f'realized_volatility_{window}s'] = 0.0
+                features[f'price_velocity_{window}s'] = 0.0
                 features[f'spread_mean_{window}s'] = 0.0
+                features[f'order_book_imbalance_{window}s'] = 0.5
+                features[f'trade_intensity_{window}s'] = 0
+                features[f'volume_velocity_{window}s'] = 0.0
         
         # Time since last trade (activity feature)
         if self.last_tick_time is not None and len(self.timestamps_buffer) > 1:

@@ -1,8 +1,10 @@
-version: '3.8'
+# Default compose file - uses Zookeeper mode (stable, well-tested)
+# For KRaft mode, use: docker compose -f compose-kraft.yaml up -d
 
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -13,6 +15,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
     depends_on:
       - zookeeper
     ports:
@@ -24,11 +27,18 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
     networks:
       - crypto-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.10.2
+    container_name: mlflow-server
     ports:
       - "5001:5000"
     volumes:
@@ -44,10 +54,84 @@ services:
       --serve-artifacts
     networks:
       - crypto-network
+    # Healthcheck removed - MLflow doesn't need curl/wget for healthcheck
+    # The service will start and be available, healthcheck is optional
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: volatility-api
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_VERSION=random_forest
+      - MODEL_PATH=/app/models/artifacts/random_forest/model.pkl
+      - MODEL_VARIANT=ml
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    volumes:
+      - ../models:/app/models:ro
+      - ../data:/app/data:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mlflow:
+        condition: service_started  # Changed from service_healthy - MLflow healthcheck is optional
+    networks:
+      - crypto-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.enable-lifecycle'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - crypto-network
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=gafanap4ssw0rd
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - crypto-network
+    depends_on:
+      - prometheus
 
 networks:
   crypto-network:
     driver: bridge
 
-# Note: mlflow_data is now a bind mount (./mlflow_data) instead of a named volume
-# This allows the host to access artifacts directly
+volumes:
+  kafka-data:
+  prometheus-data:
+  grafana-data:
+
+# Note: Kafka is now running in KRaft mode (no Zookeeper needed)
+# MLflow data is stored in ./mlflow_data (bind mount)
+# API service loads models from ../models (read-only mount)

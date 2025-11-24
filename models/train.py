@@ -1,6 +1,6 @@
 """
 Training pipeline for volatility detection models.
-Supports baseline (z-score) and ML models (Logistic Regression, XGBoost).
+Supports baseline (z-score) and ML models (Logistic Regression, XGBoost, Random Forest).
 Logs everything to MLflow.
 """
 
@@ -36,19 +36,23 @@ except ImportError:
     XGBOOST_AVAILABLE = False
     print("XGBoost not available. Install with: pip install xgboost")
 
+from sklearn.ensemble import RandomForestClassifier
+
 
 def load_and_split_data(
     features_path: str,
     val_size: float = 0.15,
-    test_size: float = 0.15
+    test_size: float = 0.15,
+    split_method: str = "time_based"
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Load features and split into train/val/test with time-based split.
+    Load features and split into train/val/test.
     
     Args:
         features_path: Path to features parquet file
         val_size: Fraction for validation set
         test_size: Fraction for test set
+        split_method: "time_based" or "stratified" (default: "time_based")
         
     Returns:
         Tuple of (train_df, val_df, test_df)
@@ -71,14 +75,49 @@ def load_and_split_data(
     
     df = df.sort_values('timestamp').reset_index(drop=True)
     
-    # Time-based split
-    n = len(df)
-    train_end = int(n * (1 - val_size - test_size))
-    val_end = int(n * (1 - test_size))
-    
-    train_df = df.iloc[:train_end].copy()
-    val_df = df.iloc[train_end:val_end].copy()
-    test_df = df.iloc[val_end:].copy()
+    if split_method == "stratified":
+        # Stratified split to maintain balanced spike rates
+        from sklearn.model_selection import train_test_split
+        
+        train_size = 1 - val_size - test_size
+        temp_size = val_size + test_size
+        
+        # First split: train vs (val+test)
+        train_df, temp_df = train_test_split(
+            df,
+            test_size=temp_size,
+            stratify=df['volatility_spike'],
+            random_state=42
+        )
+        
+        # Second split: val vs test
+        val_ratio = val_size / temp_size
+        val_df, test_df = train_test_split(
+            temp_df,
+            test_size=(1 - val_ratio),
+            stratify=temp_df['volatility_spike'],
+            random_state=42
+        )
+        
+        print(f"\nStratified Split (balanced spike rates):")
+        print(f"  Train: {len(train_df)} samples ({train_df['volatility_spike'].mean():.2%} spikes)")
+        print(f"  Val:   {len(val_df)} samples ({val_df['volatility_spike'].mean():.2%} spikes)")
+        print(f"  Test:  {len(test_df)} samples ({test_df['volatility_spike'].mean():.2%} spikes)")
+        
+    else:
+        # Time-based split (original method)
+        n = len(df)
+        train_end = int(n * (1 - val_size - test_size))
+        val_end = int(n * (1 - test_size))
+        
+        train_df = df.iloc[:train_end].copy()
+        val_df = df.iloc[train_end:val_end].copy()
+        test_df = df.iloc[val_end:].copy()
+        
+        print(f"\nTime-based Split:")
+        print(f"  Train: {len(train_df)} samples ({train_df['volatility_spike'].mean():.2%} spikes)")
+        print(f"  Val:   {len(val_df)} samples ({val_df['volatility_spike'].mean():.2%} spikes)")
+        print(f"  Test:  {len(test_df)} samples ({test_df['volatility_spike'].mean():.2%} spikes)")
     
     return train_df, val_df, test_df
 
@@ -87,12 +126,10 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Extract feature columns and target variable.
     
-    Uses reduced feature set (10 features) to minimize multicollinearity:
-    - Removed perfectly correlated duplicates (r=1.0):
-      * return_std_* (duplicates of log_return_std_*)
-      * log_return_mean_* (duplicates of return_mean_*)
-    - Keeps diverse time windows (30s, 60s, 300s) for different signals
-    - Focuses on log returns (more stable for crypto) and key statistics
+    Uses top 10 features based on Random Forest feature importance analysis:
+    - Selected from feature_analysis.py results
+    - PR-AUC: 0.9006 ± 0.0095 (cross-validated)
+    - Focuses on most predictive features across different time windows
     
     Args:
         df: Features dataframe
@@ -100,39 +137,32 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     Returns:
         Tuple of (X, y)
     """
-    # Reduced feature set (10 features) - removes perfect correlations
+    # Top 10 features by Random Forest importance (from feature_analysis.py)
     priority_features = [
-        # Volatility features (log returns - more stable for crypto)
-        'log_return_std_30s',  # 30-second log return volatility
-        'log_return_std_60s',  # 60-second log return volatility (best separation: 0.569)
-        'log_return_std_300s', # 300-second log return volatility
-        
-        # Return statistics
-        'return_mean_60s',     # 1-minute return mean
-        'return_mean_300s',    # 5-minute return mean
-        'return_min_30s',      # Minimum return in 30s (downside risk)
-        
-        # Spread volatility
-        'spread_std_300s',     # 300-second spread volatility
-        'spread_mean_60s',     # 60-second spread mean
-        
-        # Trade intensity
-        'tick_count_60s',      # Trading intensity
+        # Top features (by importance score)
+        'log_return_300s',              # 0.1229 - Log return over 300s window
+        'spread_mean_300s',             # 0.1059 - 300s spread mean (liquidity)
+        'trade_intensity_300s',         # 0.1010 - 300s trade intensity (activity)
+        'order_book_imbalance_300s',    # 0.0951 - 300s OBI (microstructure)
+        'spread_mean_60s',              # 0.0833 - 60s spread mean
+        'order_book_imbalance_60s',    # 0.0698 - 60s OBI
+        'price_velocity_300s',          # 0.0696 - 300s price velocity (momentum)
+        'realized_volatility_300s',     # 0.0636 - 300s realized volatility (target proxy)
+        'order_book_imbalance_30s',     # 0.0430 - 30s OBI
+        'realized_volatility_60s',      # 0.0404 - 60s realized volatility
     ]
     
     # Select available features
     available_cols = [col for col in priority_features if col in df.columns]
     
-    # Create derived feature: return range (return_max - return_min)
-    if 'return_max_60s' in df.columns and 'return_min_60s' in df.columns:
-        df = df.copy()
-        df['return_range_60s'] = df['return_max_60s'] - df['return_min_60s']
-        if 'return_range_60s' not in available_cols:
-            available_cols.append('return_range_60s')
-    
     if not available_cols:
         raise ValueError("No matching feature columns found in dataframe. "
                         f"Available columns: {df.columns.tolist()}")
+    
+    if len(available_cols) < len(priority_features):
+        missing = set(priority_features) - set(available_cols)
+        logger.warning(f"Some expected features missing: {missing}")
+        logger.warning(f"Using {len(available_cols)} available features: {available_cols}")
     
     X = df[available_cols].copy()
     y = df['volatility_spike'].copy()
@@ -569,12 +599,169 @@ def train_xgboost(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.Data
         return {"model": model, "val_metrics": val_metrics, "test_metrics": test_metrics}
 
 
+def train_random_forest(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame) -> Dict:
+    """Train Random Forest model with top 10 features."""
+    print("\n=== Training Random Forest ===")
+    
+    X_train, y_train = prepare_features(train_df)
+    X_val, y_val = prepare_features(val_df)
+    X_test, y_test = prepare_features(test_df)
+    
+    with mlflow.start_run(run_name="random_forest"):
+        # Log parameters
+        params = {
+            "model_type": "random_forest",
+            "n_estimators": 100,
+            "max_depth": 10,
+            "min_samples_split": 5,
+            "min_samples_leaf": 2,
+            "class_weight": "balanced",
+            "random_state": 42,
+            "n_jobs": -1  # Use all available cores
+        }
+        
+        for key, value in params.items():
+            mlflow.log_param(key, value)
+        
+        mlflow.log_param("train_samples", len(train_df))
+        mlflow.log_param("val_samples", len(val_df))
+        mlflow.log_param("test_samples", len(test_df))
+        mlflow.log_param("features", list(X_train.columns))
+        mlflow.log_param("feature_count", len(X_train.columns))
+        
+        # Train model
+        model = RandomForestClassifier(
+            n_estimators=100,
+            max_depth=10,
+            min_samples_split=5,
+            min_samples_leaf=2,
+            class_weight='balanced',
+            random_state=42,
+            n_jobs=-1
+        )
+        
+        model.fit(X_train, y_train)
+        
+        # Get probabilities
+        y_val_proba = model.predict_proba(X_val)[:, 1]
+        y_test_proba = model.predict_proba(X_test)[:, 1]
+        
+        # Optimize threshold on validation set (maximize F1)
+        precisions, recalls, thresholds = precision_recall_curve(y_val.values, y_val_proba)
+        f1_scores = 2 * (precisions * recalls) / (precisions + recalls + np.finfo(float).eps)
+        optimal_idx = np.argmax(f1_scores)
+        optimal_threshold = thresholds[optimal_idx] if optimal_idx < len(thresholds) else thresholds[-1] if len(thresholds) > 0 else 0.1
+        
+        # Also compute threshold matching spike rate (10% from EDA) - for reference
+        target_spike_rate = 0.10
+        threshold_10pct = np.percentile(y_val_proba, (1 - target_spike_rate) * 100)
+        
+        # Use optimal F1 threshold for predictions (works better across validation and test sets)
+        print(f"\nThreshold Optimization:")
+        print(f"  Optimal threshold (max F1): {optimal_threshold:.4f}")
+        print(f"  Threshold for 10% spike rate: {threshold_10pct:.4f}")
+        print(f"  Using optimal threshold (max F1): {optimal_threshold:.4f} (works across validation and test)")
+        
+        # Validation metrics with optimal threshold
+        y_val_pred = (y_val_proba >= optimal_threshold).astype(int)
+        val_metrics = compute_metrics(y_val.values, y_val_pred, y_val_proba)
+        
+        # Test metrics with optimal threshold
+        y_test_pred = (y_test_proba >= optimal_threshold).astype(int)
+        test_metrics = compute_metrics(y_test.values, y_test_pred, y_test_proba)
+        
+        # Log threshold
+        mlflow.log_param("optimal_threshold", optimal_threshold)
+        mlflow.log_param("threshold_10pct", threshold_10pct)
+        mlflow.log_param("threshold_used", optimal_threshold)  # Indicate which threshold is used for predictions
+        
+        # Log metrics
+        for split, metrics in [("val", val_metrics), ("test", test_metrics)]:
+            for metric_name, value in metrics.items():
+                mlflow.log_metric(f"{split}_{metric_name}", value)
+        
+        # Create plots
+        plots_dir = Path("models/artifacts/random_forest")
+        plots_dir.mkdir(parents=True, exist_ok=True)
+        
+        plot_pr_curve(y_test.values, y_test_proba, plots_dir / "pr_curve.png")
+        plot_roc_curve(y_test.values, y_test_proba, plots_dir / "roc_curve.png")
+        
+        # Feature importance
+        feature_importance = pd.DataFrame({
+            'feature': X_train.columns,
+            'importance': model.feature_importances_
+        }).sort_values('importance', ascending=False)
+        
+        plt.figure(figsize=(10, 6))
+        plt.barh(feature_importance['feature'], feature_importance['importance'])
+        plt.xlabel('Importance')
+        plt.title('Feature Importance (Random Forest)')
+        plt.tight_layout()
+        plt.savefig(plots_dir / "feature_importance.png")
+        plt.close()
+        
+        # Log artifacts - handle potential filesystem errors gracefully
+        artifact_files = [
+            ("pr_curve.png", plots_dir / "pr_curve.png"),
+            ("roc_curve.png", plots_dir / "roc_curve.png"),
+            ("feature_importance.png", plots_dir / "feature_importance.png")
+        ]
+        
+        for artifact_name, artifact_path in artifact_files:
+            try:
+                mlflow.log_artifact(str(artifact_path))
+            except OSError as e:
+                if "Read-only file system" in str(e) or "/mlflow" in str(e):
+                    print(f"⚠ Warning: Could not log artifact {artifact_name} to MLflow server")
+                    print(f"   Artifact saved locally at: {artifact_path}")
+                else:
+                    raise
+        
+        # Log model
+        try:
+            mlflow.sklearn.log_model(model, "model")
+        except OSError as e:
+            if "Read-only file system" in str(e) or "/mlflow" in str(e):
+                print(f"⚠ Warning: Could not log model to MLflow server")
+            else:
+                raise
+        
+        # Save locally
+        model_path = plots_dir / "model.pkl"
+        with open(model_path, 'wb') as f:
+            pickle.dump(model, f)
+        
+        # Save threshold metadata
+        threshold_metadata = {
+            "optimal_threshold": float(optimal_threshold),
+            "threshold_10pct": float(threshold_10pct),
+            "threshold_used": float(optimal_threshold),  # The threshold actually used for predictions (optimal F1)
+            "validation_f1_at_optimal": float(f1_scores[optimal_idx]),
+            "spike_rate_target": target_spike_rate
+        }
+        threshold_path = plots_dir / "threshold_metadata.json"
+        with open(threshold_path, 'w') as f:
+            json.dump(threshold_metadata, f, indent=2)
+        
+        print(f"\nSaved threshold metadata to: {threshold_path}")
+        print(f"Validation PR-AUC: {val_metrics['pr_auc']:.4f}")
+        print(f"Test PR-AUC: {test_metrics['pr_auc']:.4f}")
+        print(f"\nTop 5 Features by Importance:")
+        for idx, row in feature_importance.head(5).iterrows():
+            print(f"  {row['feature']}: {row['importance']:.4f}")
+        
+        return {"model": model, "val_metrics": val_metrics, "test_metrics": test_metrics}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Train volatility detection models")
     parser.add_argument("--features", default="data/processed/features_labeled.parquet",
                        help="Path to features parquet file")
+    parser.add_argument("--split-method", choices=["time_based", "stratified"], default="time_based",
+                       help="Data splitting method: 'time_based' (maintains temporal order) or 'stratified' (balanced spike rates)")
     parser.add_argument("--models", nargs='+', default=["baseline", "logistic"],
-                       choices=["baseline", "logistic", "xgboost"],
+                       choices=["baseline", "logistic", "xgboost", "random_forest"],
                        help="Models to train")
     parser.add_argument("--mlflow-uri", default="http://localhost:5001",
                        help="MLflow tracking URI")
@@ -631,7 +818,7 @@ def main():
     
     # Load and split data
     print("Loading data...")
-    train_df, val_df, test_df = load_and_split_data(args.features)
+    train_df, val_df, test_df = load_and_split_data(args.features, split_method=args.split_method)
     
     print(f"\nData splits:")
     print(f"  Train: {len(train_df)} samples ({train_df['volatility_spike'].mean():.2%} spikes)")
@@ -649,6 +836,9 @@ def main():
     
     if "xgboost" in args.models and XGBOOST_AVAILABLE:
         results['xgboost'] = train_xgboost(train_df, val_df, test_df)
+
+    if "random_forest" in args.models:
+        results['random_forest'] = train_random_forest(train_df, val_df, test_df)
     
     # Summary comparison
     print("\n=== Model Comparison (Test Set) ===")
