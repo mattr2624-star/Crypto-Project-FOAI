@@ -257,7 +257,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 5 },
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 5 },
       "id": 50,
       "options": {
         "colorMode": "value",
@@ -296,7 +296,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 5 },
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 5 },
       "id": 51,
       "options": {
         "colorMode": "value",
@@ -332,7 +332,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 5 },
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 5 },
       "id": 52,
       "options": {
         "colorMode": "value",
@@ -377,7 +377,7 @@
           { "matcher": { "id": "byName", "options": "Memory" }, "properties": [ { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } } ] }
         ]
       },
-      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 5 },
+      "gridPos": { "h": 3, "w": 12, "x": 12, "y": 5 },
       "id": 53,
       "options": {
         "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
@@ -392,7 +392,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 },
       "id": 103,
       "panels": [],
       "title": "Model Comparison & Feature Importance",
@@ -400,23 +400,23 @@
     },
     {
       "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 10 },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 9 },
       "id": 30,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
-        "content": "## Best Model: Logistic Regression\n\n| Metric | Value |\n|--------|-------|\n| **PR-AUC** | 0.8917 |\n| **ROC-AUC** | 0.9399 |\n| **F1 Score** | 0.9091 |\n| **Recall** | 87.72% |\n| **Precision** | 94.34% |\n| **Latency** | 0.003 ms |\n\n*Optimized via GridSearchCV*",
+        "content": "## Best Model\n# Logistic Regression\n\n| Metric | Value |\n|--------|-------|\n| PR-AUC | **0.8917** |\n| ROC-AUC | 0.9399 |\n| F1 Score | 0.9091 |\n| Recall | 87.72% |\n| Precision | 94.34% |\n| Latency | 0.003 ms |\n\n*GridSearchCV optimized*",
         "mode": "markdown"
       },
-      "title": "Recommended Model",
+      "title": "Recommended",
       "type": "text"
     },
     {
       "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 10 },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 9 },
       "id": 35,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
-        "content": "## Feature Importance (Logistic Regression)\n\n| Rank | Feature | Importance |\n|------|---------|------------|\n| 1 | `realized_volatility_300s` | 0.342 |\n| 2 | `realized_volatility_60s` | 0.287 |\n| 3 | `log_return_300s` | 0.156 |\n| 4 | `spread_mean_300s` | 0.089 |\n| 5 | `trade_intensity_300s` | 0.067 |\n| 6 | `order_book_imbalance_300s` | 0.032 |\n| 7 | `price_velocity_300s` | 0.027 |\n\n*Volatility features drive predictions*",
+        "content": "## Feature Importance\n\n| # | Feature | Weight |\n|---|---------|--------|\n| 1 | realized_vol_300s | 0.342 |\n| 2 | realized_vol_60s | 0.287 |\n| 3 | log_return_300s | 0.156 |\n| 4 | spread_mean_300s | 0.089 |\n| 5 | trade_intensity | 0.067 |\n| 6 | ob_imbalance_300s | 0.032 |\n| 7 | price_velocity | 0.027 |",
         "mode": "markdown"
       },
       "title": "Top Features",
@@ -424,22 +424,34 @@
     },
     {
       "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 10 },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 9 },
       "id": 36,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
-        "content": "## Model Comparison Summary\n\n| Model | PR-AUC | F1 | Latency |\n|-------|--------|-----|--------|\n| **Logistic** | **0.892** | **0.91** | 0.003ms |\n| Gradient Boost | 0.841 | 0.89 | 0.12ms |\n| Z-Score | 0.327 | 0.58 | 0.001ms |\n| Random Forest | 0.295 | 0.53 | 0.08ms |\n\n### GridSearchCV Optimization\nAll models tuned with 5-fold CV using all CPU cores.",
+        "content": "## Model Comparison\n\n| Model | PR-AUC | F1 |\n|-------|--------|-----|\n| **Logistic** | **0.892** | **0.91** |\n| Gradient Boost | 0.841 | 0.89 |\n| Z-Score | 0.327 | 0.58 |\n| Random Forest | 0.295 | 0.53 |\n\n### Training\n- 5-fold CV\n- All CPU cores\n- GridSearchCV tuning",
         "mode": "markdown"
       },
-      "title": "Model Comparison",
+      "title": "All Models",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 9 },
+      "id": 37,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "## Hyperparameters\n### Logistic Regression\n```\nC: 1.0\npenalty: l2\nsolver: lbfgs\nclass_weight: balanced\n```\n\n### Gradient Boosting\n```\nn_estimators: 100\nmax_depth: 5\nlearning_rate: 0.1\nsubsample: 0.8\n```",
+        "mode": "markdown"
+      },
+      "title": "Best Params",
       "type": "text"
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
       "id": 104,
       "panels": [],
-      "title": "Real-Time Features",
+      "title": "Real-Time Features & Predictions",
       "type": "row"
     },
     {
@@ -464,16 +476,16 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 16 },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 18 },
       "id": 40,
       "options": {
-        "legend": { "calcs": ["lastNotNull", "mean"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "legend": { "calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom", "showLegend": true },
         "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
       },
       "targets": [
         { "expr": "feature_value{feature_name=~\"realized_volatility.*\"}", "legendFormat": "{{feature_name}}", "refId": "A" }
       ],
-      "title": "Volatility Features (Real-Time)",
+      "title": "Volatility Features",
       "type": "timeseries"
     },
     {
@@ -498,124 +510,19 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 16 },
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 18 },
       "id": 41,
       "options": {
-        "legend": { "calcs": ["lastNotNull", "mean"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "legend": { "calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom", "showLegend": true },
         "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
       },
       "targets": [
-        { "expr": "feature_value{feature_name=\"log_return_300s\"}", "legendFormat": "log_return_300s", "refId": "A" },
-        { "expr": "feature_value{feature_name=\"price_velocity_300s\"}", "legendFormat": "price_velocity_300s", "refId": "B" }
+        { "expr": "feature_value{feature_name=\"log_return_300s\"}", "legendFormat": "log_return", "refId": "A" },
+        { "expr": "feature_value{feature_name=\"price_velocity_300s\"}", "legendFormat": "price_velocity", "refId": "B" },
+        { "expr": "feature_value{feature_name=\"spread_mean_300s\"}", "legendFormat": "spread_mean", "refId": "C" }
       ],
-      "title": "Return & Velocity (Real-Time)",
+      "title": "Price & Spread Features",
       "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
-            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6,
-            "drawStyle": "line", "fillOpacity": 20, "gradientMode": "opacity",
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
-            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5,
-            "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false,
-            "stacking": { "group": "A", "mode": "none" },
-            "thresholdsStyle": { "mode": "off" }
-          },
-          "decimals": 4,
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "orange", "value": null } ] },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 16 },
-      "id": 42,
-      "options": {
-        "legend": { "calcs": ["lastNotNull", "mean"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
-      },
-      "targets": [
-        { "expr": "feature_value{feature_name=~\"order_book_imbalance.*\"}", "legendFormat": "{{feature_name}}", "refId": "A" }
-      ],
-      "title": "Order Book Imbalance (Real-Time)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "decimals": 4,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 0.3 },
-              { "color": "red", "value": 0.7 }
-            ]
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 20 },
-      "id": 43,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "targets": [
-        { "expr": "prediction_score", "legendFormat": "Score", "refId": "A" }
-      ],
-      "title": "Latest Prediction Score",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "decimals": 4,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 0.3 },
-              { "color": "red", "value": 0.5 }
-            ]
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 20 },
-      "id": 44,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "targets": [
-        { "expr": "avg_prediction_score", "legendFormat": "Avg", "refId": "A" }
-      ],
-      "title": "Avg Score (Last 100)",
-      "type": "stat"
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -641,22 +548,22 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 20 },
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 18 },
       "id": 45,
       "options": {
-        "legend": { "calcs": ["lastNotNull", "mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "legend": { "calcs": ["lastNotNull", "mean"], "displayMode": "list", "placement": "bottom", "showLegend": true },
         "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
       },
       "targets": [
-        { "expr": "prediction_score", "legendFormat": "Latest Score", "refId": "A" },
-        { "expr": "avg_prediction_score", "legendFormat": "Rolling Avg", "refId": "B" }
+        { "expr": "prediction_score", "legendFormat": "Latest", "refId": "A" },
+        { "expr": "avg_prediction_score", "legendFormat": "Avg (100)", "refId": "B" }
       ],
-      "title": "Prediction Score Over Time",
+      "title": "Prediction Score",
       "type": "timeseries"
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
       "id": 101,
       "panels": [],
       "title": "Latency & Performance",
@@ -684,7 +591,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 25 },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 24 },
       "id": 10,
       "options": {
         "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
@@ -720,7 +627,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 25 },
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 24 },
       "id": 11,
       "options": {
         "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
@@ -762,10 +669,10 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 30 },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 30 },
       "id": 20,
       "options": {
-        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "legend": { "calcs": ["mean"], "displayMode": "list", "placement": "bottom", "showLegend": true },
         "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
       },
       "targets": [
@@ -796,13 +703,13 @@
         },
         "overrides": [
           { "matcher": { "id": "byName", "options": "prediction=0" }, "properties": [ { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }, { "id": "displayName", "value": "Normal" } ] },
-          { "matcher": { "id": "byName", "options": "prediction=1" }, "properties": [ { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }, { "id": "displayName", "value": "Spike Alert" } ] }
+          { "matcher": { "id": "byName", "options": "prediction=1" }, "properties": [ { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }, { "id": "displayName", "value": "Spike" } ] }
         ]
       },
-      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 30 },
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 30 },
       "id": 21,
       "options": {
-        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "legend": { "calcs": ["sum"], "displayMode": "list", "placement": "bottom", "showLegend": true },
         "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
       },
       "targets": [
@@ -822,7 +729,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 30 },
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 30 },
       "id": 22,
       "options": {
         "colorMode": "value",
@@ -837,7 +744,7 @@
       "targets": [
         { "expr": "sum(predictions_total{prediction=\"1\"}) / sum(predictions_total) * 100", "legendFormat": "Spike %", "refId": "A" }
       ],
-      "title": "Spike Alert Rate",
+      "title": "Spike Rate",
       "type": "stat"
     },
     {
@@ -853,7 +760,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 30 },
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 30 },
       "id": 24,
       "options": {
         "colorMode": "background",
@@ -868,7 +775,7 @@
       "targets": [
         { "expr": "0", "legendFormat": "Drift", "refId": "A" }
       ],
-      "title": "Data Drift Status",
+      "title": "Data Drift",
       "type": "stat"
     }
   ],

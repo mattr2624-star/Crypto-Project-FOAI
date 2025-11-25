@@ -38,6 +38,9 @@ slowapi==0.1.9
 # Structured logging (JSON format)
 python-json-logger==2.0.7
 
+# System monitoring
+psutil>=5.9.0  # CPU/memory metrics for hardware monitoring
+
 # Note: Evidently is excluded from API requirements as it requires pydantic<2
 # Evidently is only needed for drift monitoring scripts (requirements.txt), not the API service
 
