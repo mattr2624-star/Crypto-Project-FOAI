@@ -23,7 +23,7 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "id": 200,
       "panels": [],
-      "title": "Project Overview",
+      "title": "Overview",
       "type": "row"
     },
     {
@@ -35,7 +35,7 @@
         "content": "### Crypto Volatility\n**Real-Time AI Service**\n\n🎯 Predict BTC-USD spikes\n📊 Binary: spike/normal\n⏱️ 60s prediction window",
         "mode": "markdown"
       },
-      "title": "Project",
+      "title": "",
       "type": "text"
     },
     {
@@ -47,7 +47,7 @@
         "content": "### Data Pipeline\n🔌 Coinbase WebSocket\n📡 BTC-USD ticks\n📖 Order book data\n🔄 WS→Kafka→API",
         "mode": "markdown"
       },
-      "title": "Data Source",
+      "title": "",
       "type": "text"
     },
     {
@@ -59,7 +59,7 @@
         "content": "### Architecture\nCoinbase → Ingestor\n↓\nKafka (KRaft)\n↓\nFastAPI → Prometheus\n↓\nGrafana",
         "mode": "markdown"
       },
-      "title": "System",
+      "title": "",
       "type": "text"
     },
     {
@@ -71,7 +71,7 @@
         "content": "### Tech Stack\n**API:** FastAPI\n**Stream:** Kafka\n**ML:** sklearn\n**Monitor:** Prometheus\n**Visual:** Grafana",
         "mode": "markdown"
       },
-      "title": "Technology",
+      "title": "",
       "type": "text"
     },
     {
@@ -83,7 +83,7 @@
         "content": "### Training Data\n📁 1,140 samples\n🔀 80/20 split\n⚖️ Normal: 57%\n⚖️ Spike: 43%\n✅ 5-Fold CV",
         "mode": "markdown"
       },
-      "title": "Dataset",
+      "title": "",
       "type": "text"
     },
     {
@@ -95,7 +95,7 @@
         "content": "### Expected Live\n📈 Normal: ~90%\n📉 Spike: ~5-15%\n⚠️ Drift if >30%\n🔴 Retrain if >50%",
         "mode": "markdown"
       },
-      "title": "Live Dist",
+      "title": "",
       "type": "text"
     },
     {
@@ -103,7 +103,7 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
       "id": 207,
       "panels": [],
-      "title": "Dataset & Distribution",
+      "title": "Dataset",
       "type": "row"
     },
     {
@@ -115,7 +115,7 @@
         "content": "### Dataset Details\n| Metric | Value | | Metric | Value |\n|--------|-------|---|--------|-------|\n| Samples | 1,140 | | Product | BTC-USD |\n| Features | 10 | | Freq | ~1/sec |\n| Target | is_spike | | Date | Nov 8 |",
         "mode": "markdown"
       },
-      "title": "Training Dataset",
+      "title": "",
       "type": "text"
     },
     {
@@ -124,10 +124,10 @@
       "id": 209,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
-        "content": "### Training Class Distribution\n```\nNormal ████████████████░░░░ 57% (650)\nSpike  █████████████░░░░░░░ 43% (490)\n```\n*Class weights balanced during training*",
+        "content": "### Training Distribution\n```\nNormal ████████████████░░░░ 57% (650)\nSpike  █████████████░░░░░░░ 43% (490)\n```\n*Class weights balanced during training*",
         "mode": "markdown"
       },
-      "title": "Train Distribution",
+      "title": "",
       "type": "text"
     },
     {
@@ -136,10 +136,10 @@
       "id": 210,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
-        "content": "### Expected Live Distribution\n```\nNormal ██████████████████░░ 90%\nSpike  ██░░░░░░░░░░░░░░░░░░ 10%\n```\n⚠️ Alert: >30% spike | 🔴 Retrain: >50%",
+        "content": "### Expected Live\n```\nNormal ██████████████████░░ 90%\nSpike  ██░░░░░░░░░░░░░░░░░░ 10%\n```\n⚠️ Alert: >30% spike | 🔴 Retrain: >50%",
         "mode": "markdown"
       },
-      "title": "Live Expected",
+      "title": "",
       "type": "text"
     },
     {
@@ -147,7 +147,7 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 10 },
       "id": 100,
       "panels": [],
-      "title": "System Health",
+      "title": "Health",
       "type": "row"
     },
     {
@@ -183,7 +183,7 @@
       "targets": [
         { "expr": "sum(rate(http_requests_total{endpoint=\"/predict\"}[5m]))", "legendFormat": "QPS", "refId": "A" }
       ],
-      "title": "Prediction QPS",
+      "title": "QPS",
       "type": "stat"
     },
     {
@@ -219,7 +219,7 @@
       "targets": [
         { "expr": "histogram_quantile(0.95, sum(rate(prediction_latency_seconds_bucket[5m])) by (le)) * 1000", "legendFormat": "p95", "refId": "A" }
       ],
-      "title": "p95 Latency",
+      "title": "p95",
       "type": "stat"
     },
     {
@@ -257,7 +257,7 @@
       "targets": [
         { "expr": "sum(rate(http_requests_total{status=\"200\"}[5m])) / sum(rate(http_requests_total[5m]))", "legendFormat": "Success", "refId": "A" }
       ],
-      "title": "Success Rate",
+      "title": "Success",
       "type": "stat"
     },
     {
@@ -291,7 +291,7 @@
       "targets": [
         { "expr": "sum(model_loaded)", "legendFormat": "Model", "refId": "A" }
       ],
-      "title": "Model Status",
+      "title": "Model",
       "type": "stat"
     },
     {
@@ -320,7 +320,7 @@
       "targets": [
         { "expr": "sum(predictions_total)", "legendFormat": "Total", "refId": "A" }
       ],
-      "title": "Total Predictions",
+      "title": "Preds",
       "type": "stat"
     },
     {
@@ -349,7 +349,7 @@
       "targets": [
         { "expr": "sum(http_requests_total)", "legendFormat": "Requests", "refId": "A" }
       ],
-      "title": "Total Requests",
+      "title": "Reqs",
       "type": "stat"
     },
     {
@@ -357,7 +357,7 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
       "id": 105,
       "panels": [],
-      "title": "Hardware Performance",
+      "title": "Hardware",
       "type": "row"
     },
     {
@@ -396,7 +396,7 @@
       "targets": [
         { "expr": "system_cpu_percent", "legendFormat": "CPU", "refId": "A" }
       ],
-      "title": "CPU Usage",
+      "title": "CPU",
       "type": "stat"
     },
     {
@@ -435,7 +435,7 @@
       "targets": [
         { "expr": "system_memory_percent", "legendFormat": "Memory", "refId": "A" }
       ],
-      "title": "Memory Usage",
+      "title": "Mem",
       "type": "stat"
     },
     {
@@ -471,7 +471,7 @@
       "targets": [
         { "expr": "system_memory_available_gb", "legendFormat": "Available", "refId": "A" }
       ],
-      "title": "Memory Available",
+      "title": "Avail",
       "type": "stat"
     },
     {
@@ -511,7 +511,7 @@
         { "expr": "system_cpu_percent", "legendFormat": "CPU", "refId": "A" },
         { "expr": "system_memory_percent", "legendFormat": "Memory", "refId": "B" }
       ],
-      "title": "CPU & Memory Over Time",
+      "title": "Timeline",
       "type": "timeseries"
     },
     {
@@ -519,7 +519,7 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
       "id": 103,
       "panels": [],
-      "title": "Model Comparison & Feature Importance",
+      "title": "Models",
       "type": "row"
     },
     {
@@ -531,7 +531,7 @@
         "content": "### Best: Logistic Regression\n| Metric | Value |\n|--------|-------|\n| PR-AUC | **0.892** |\n| F1 | 0.909 |\n| Recall | 87.7% |\n| Precision | 94.3% |",
         "mode": "markdown"
       },
-      "title": "Recommended",
+      "title": "",
       "type": "text"
     },
     {
@@ -543,7 +543,7 @@
         "content": "### Top Features\n| Feature | Weight |\n|---------|--------|\n| realized_vol_300s | 0.34 |\n| realized_vol_60s | 0.29 |\n| log_return_300s | 0.16 |\n| spread_mean_300s | 0.09 |",
         "mode": "markdown"
       },
-      "title": "Feature Importance",
+      "title": "",
       "type": "text"
     },
     {
@@ -555,7 +555,7 @@
         "content": "### Model Comparison\n| Model | PR-AUC | F1 |\n|-------|--------|----|\n| **Logistic** | **0.89** | **0.91** |\n| GradBoost | 0.84 | 0.89 |\n| Z-Score | 0.33 | 0.58 |\n| RF | 0.30 | 0.53 |",
         "mode": "markdown"
       },
-      "title": "All Models",
+      "title": "",
       "type": "text"
     },
     {
@@ -567,7 +567,7 @@
         "content": "### Hyperparameters\n**Logistic:** C=1.0, l2, balanced\n**GradBoost:** n=100, depth=5\n\n**Training:**\n- 5-fold CV\n- GridSearchCV\n- All CPU cores",
         "mode": "markdown"
       },
-      "title": "Best Params",
+      "title": "",
       "type": "text"
     },
     {
@@ -575,7 +575,7 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
       "id": 104,
       "panels": [],
-      "title": "Real-Time Features & Predictions",
+      "title": "Features",
       "type": "row"
     },
     {
@@ -609,7 +609,7 @@
       "targets": [
         { "expr": "feature_value{feature_name=~\"realized_volatility.*\"}", "legendFormat": "{{feature_name}}", "refId": "A" }
       ],
-      "title": "Volatility Features",
+      "title": "Volatility",
       "type": "timeseries"
     },
     {
@@ -645,7 +645,7 @@
         { "expr": "feature_value{feature_name=\"price_velocity_300s\"}", "legendFormat": "price_velocity", "refId": "B" },
         { "expr": "feature_value{feature_name=\"spread_mean_300s\"}", "legendFormat": "spread_mean", "refId": "C" }
       ],
-      "title": "Price & Spread Features",
+      "title": "Price/Spread",
       "type": "timeseries"
     },
     {
@@ -682,7 +682,7 @@
         { "expr": "prediction_score", "legendFormat": "Latest", "refId": "A" },
         { "expr": "avg_prediction_score", "legendFormat": "Avg (100)", "refId": "B" }
       ],
-      "title": "Prediction Score",
+      "title": "Score",
       "type": "timeseries"
     },
     {
@@ -690,7 +690,7 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 },
       "id": 101,
       "panels": [],
-      "title": "Latency & Performance",
+      "title": "Latency",
       "type": "row"
     },
     {
@@ -726,7 +726,7 @@
         { "expr": "histogram_quantile(0.95, sum(rate(prediction_latency_seconds_bucket[5m])) by (le)) * 1000", "legendFormat": "p95", "refId": "B" },
         { "expr": "histogram_quantile(0.99, sum(rate(prediction_latency_seconds_bucket[5m])) by (le)) * 1000", "legendFormat": "p99", "refId": "C" }
       ],
-      "title": "Prediction Latency (p50/p95/p99)",
+      "title": "p50/p95/p99",
       "type": "timeseries"
     },
     {
@@ -760,7 +760,7 @@
       "targets": [
         { "expr": "sum by (endpoint)(rate(http_requests_total[5m]))", "legendFormat": "{{endpoint}}", "refId": "A" }
       ],
-      "title": "Request Rate by Endpoint",
+      "title": "Endpoints",
       "type": "timeseries"
     },
     {
@@ -768,7 +768,7 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
       "id": 102,
       "panels": [],
-      "title": "Model Performance (Real-Time)",
+      "title": "Predictions",
       "type": "row"
     },
     {
@@ -802,7 +802,7 @@
       "targets": [
         { "expr": "sum by (model_version)(rate(predictions_total[5m]))", "legendFormat": "{{model_version}}", "refId": "A" }
       ],
-      "title": "Predictions by Model",
+      "title": "By Model",
       "type": "timeseries"
     },
     {
@@ -839,7 +839,7 @@
       "targets": [
         { "expr": "sum by (prediction)(increase(predictions_total[1h]))", "legendFormat": "prediction={{prediction}}", "refId": "A" }
       ],
-      "title": "Prediction Distribution",
+      "title": "Distribution",
       "type": "timeseries"
     },
     {
@@ -868,7 +868,7 @@
       "targets": [
         { "expr": "sum(predictions_total{prediction=\"1\"}) / sum(predictions_total) * 100", "legendFormat": "Spike %", "refId": "A" }
       ],
-      "title": "Spike Rate",
+      "title": "Spike%",
       "type": "stat"
     },
     {
@@ -899,7 +899,7 @@
       "targets": [
         { "expr": "0", "legendFormat": "Drift", "refId": "A" }
       ],
-      "title": "Data Drift",
+      "title": "Drift",
       "type": "stat"
     }
   ],
