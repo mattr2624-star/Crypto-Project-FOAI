@@ -117,31 +117,45 @@ BASELINE_MODEL_PATH = os.getenv(
 # Request/Response models - Assignment API Contract
 class FeatureRow(BaseModel):
     """Single row of features for prediction."""
-    
+
     # Assignment-compatible feature names (simple)
     ret_mean: Optional[float] = Field(None, description="Return mean")
     ret_std: Optional[float] = Field(None, description="Return standard deviation")
     n: Optional[int] = Field(None, description="Sample count")
-    
+
     # Full feature names (internal model features)
     log_return_300s: Optional[float] = Field(None, description="Log return over 300s")
     spread_mean_300s: Optional[float] = Field(None, description="Mean spread over 300s")
-    trade_intensity_300s: Optional[float] = Field(None, description="Trade intensity over 300s")
-    order_book_imbalance_300s: Optional[float] = Field(None, description="Order book imbalance over 300s")
+    trade_intensity_300s: Optional[float] = Field(
+        None, description="Trade intensity over 300s"
+    )
+    order_book_imbalance_300s: Optional[float] = Field(
+        None, description="Order book imbalance over 300s"
+    )
     spread_mean_60s: Optional[float] = Field(None, description="Mean spread over 60s")
-    order_book_imbalance_60s: Optional[float] = Field(None, description="Order book imbalance over 60s")
-    price_velocity_300s: Optional[float] = Field(None, description="Price velocity over 300s")
-    realized_volatility_300s: Optional[float] = Field(None, description="Realized volatility over 300s")
-    order_book_imbalance_30s: Optional[float] = Field(None, description="Order book imbalance over 30s")
-    realized_volatility_60s: Optional[float] = Field(None, description="Realized volatility over 60s")
-    
+    order_book_imbalance_60s: Optional[float] = Field(
+        None, description="Order book imbalance over 60s"
+    )
+    price_velocity_300s: Optional[float] = Field(
+        None, description="Price velocity over 300s"
+    )
+    realized_volatility_300s: Optional[float] = Field(
+        None, description="Realized volatility over 300s"
+    )
+    order_book_imbalance_30s: Optional[float] = Field(
+        None, description="Order book imbalance over 30s"
+    )
+    realized_volatility_60s: Optional[float] = Field(
+        None, description="Realized volatility over 60s"
+    )
+
     class Config:
         extra = "allow"  # Allow additional fields
 
 
 class PredictRequest(BaseModel):
     """Prediction request - Assignment API Contract."""
-    
+
     rows: list[FeatureRow] = Field(
         ...,
         description="List of feature rows for batch prediction",
@@ -151,8 +165,10 @@ class PredictRequest(BaseModel):
 
 class PredictResponse(BaseModel):
     """Prediction response - Assignment API Contract."""
-    
-    scores: list[float] = Field(..., description="Prediction probabilities for each row")
+
+    scores: list[float] = Field(
+        ..., description="Prediction probabilities for each row"
+    )
     model_variant: str = Field(..., description="Model variant used (ml or baseline)")
     version: str = Field(..., description="Model version")
     ts: str = Field(..., description="Timestamp of prediction")
@@ -382,13 +398,13 @@ async def health():
 async def predict(request: Request, predict_request: PredictRequest):
     """
     Make volatility predictions - Assignment API Contract.
-    
+
     Accepts a list of feature rows and returns prediction scores.
-    
+
     Example:
         POST /predict
         {"rows": [{"ret_mean": 0.05, "ret_std": 0.01, "n": 50}]}
-        
+
         Response:
         {"scores": [0.74], "model_variant": "ml", "version": "v1.2", "ts": "2025-11-02T14:33:00Z"}
     """
@@ -429,30 +445,30 @@ async def predict(request: Request, predict_request: PredictRequest):
             "ret_std": "realized_volatility_300s",
             "n": "trade_intensity_300s",
         }
-        
+
         # Process each row
         all_scores = []
         start_time = time.time()
-        
+
         for row in predict_request.rows:
             # Convert row to dict
             row_dict = row.model_dump(exclude_none=True)
             features_dict = {}
-            
+
             # Map simple names to full feature names
             for simple_name, full_name in feature_mapping.items():
                 if simple_name in row_dict:
                     features_dict[full_name] = float(row_dict[simple_name])
-            
+
             # Copy any full feature names that are already present
             for feat in expected_features:
                 if feat in row_dict:
                     features_dict[feat] = float(row_dict[feat])
-            
+
             # Ensure timestamp exists (required by prepare_features)
             features_dict["timestamp"] = datetime.utcnow().isoformat()
             features_dict["product_id"] = "BTC-USD"
-            
+
             # Fill missing features with defaults
             for feat in expected_features:
                 if feat not in features_dict:
@@ -517,7 +533,7 @@ async def predict(request: Request, predict_request: PredictRequest):
 async def predict_legacy(request: Request, feature_request: FeatureRequest):
     """
     Legacy prediction endpoint (backward compatibility).
-    
+
     Accepts feature dictionary and returns prediction, probability, and alert status.
     """
     correlation_id = getattr(request.state, "correlation_id", "unknown")
@@ -600,7 +616,7 @@ async def predict_legacy(request: Request, feature_request: FeatureRequest):
 async def version():
     """
     Get API and model version information.
-    
+
     Returns model name, git SHA, version, and model variant.
     """
     # Get git SHA if available
@@ -609,6 +625,7 @@ async def version():
         # Try to read from git if available
         try:
             import subprocess
+
             result = subprocess.run(
                 ["git", "rev-parse", "--short", "HEAD"],
                 capture_output=True,
@@ -619,7 +636,7 @@ async def version():
                 git_sha = result.stdout.strip()
         except Exception:
             pass
-    
+
     return VersionResponse(
         model=f"{MODEL_VERSION}_v1",
         sha=git_sha,

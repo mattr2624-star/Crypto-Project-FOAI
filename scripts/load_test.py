@@ -13,9 +13,7 @@ import json
 from pathlib import Path
 
 # Sample feature data - Assignment API format
-SAMPLE_REQUEST = {
-    "rows": [{"ret_mean": 0.05, "ret_std": 0.01, "n": 50}]
-}
+SAMPLE_REQUEST = {"rows": [{"ret_mean": 0.05, "ret_std": 0.01, "n": 50}]}
 
 # Legacy feature format (for backward compatibility testing)
 SAMPLE_FEATURES = {
@@ -36,9 +34,7 @@ async def send_request(client: httpx.AsyncClient, url: str, request_id: int) -> 
     """Send a single prediction request and measure latency."""
     start_time = time.time()
     try:
-        response = await client.post(
-            url, json=SAMPLE_REQUEST, timeout=10.0
-        )
+        response = await client.post(url, json=SAMPLE_REQUEST, timeout=10.0)
         elapsed_ms = (time.time() - start_time) * 1000
 
         return {
@@ -162,7 +158,7 @@ def print_results(stats: Dict):
     print()
     print("SLO Compliance:")
     p95_pass = "PASS" if p95_latency <= 800 else "FAIL"
-    success_pass = "PASS" if stats['success_rate'] >= 99 else "FAIL"
+    success_pass = "PASS" if stats["success_rate"] >= 99 else "FAIL"
     print(f"  p95 <= 800ms:       [{p95_pass}] ({p95_latency:.2f}ms)")
     print(f"  Success Rate >= 99%: [{success_pass}] ({stats['success_rate']:.1f}%)")
 
