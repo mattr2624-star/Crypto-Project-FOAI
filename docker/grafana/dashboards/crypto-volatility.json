@@ -21,6 +21,130 @@
     {
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 200,
+      "panels": [],
+      "title": "Project Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 1 },
+      "id": 201,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "# Crypto Volatility\n\n**Real-Time AI Service**\n\n🎯 **Objective:**\nPredict volatility spikes in BTC-USD using ML.\n\n📊 **Output:**\nBinary (spike/normal)\n\n⏱️ **Window:** 60s",
+        "mode": "markdown"
+      },
+      "title": "Project",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 6, "w": 4, "x": 4, "y": 1 },
+      "id": 202,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "# Data Pipeline\n\n🔌 **WebSocket:**\nCoinbase API\n\n📡 **Stream:**\n- BTC-USD ticks\n- Order book\n\n🔄 **Flow:**\n```\nWS→Kafka→API\n```",
+        "mode": "markdown"
+      },
+      "title": "Data Source",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 6, "w": 4, "x": 8, "y": 1 },
+      "id": 203,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "# Architecture\n```\nCoinbase WS\n    ↓\n Ingestor\n    ↓\n  Kafka\n    ↓\n FastAPI\n    ↓\nPrometheus\n    ↓\n Grafana\n```",
+        "mode": "markdown"
+      },
+      "title": "System",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 6, "w": 4, "x": 12, "y": 1 },
+      "id": 204,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "# Tech Stack\n\n| Layer | Tech |\n|-------|------|\n| API | FastAPI |\n| Stream | Kafka |\n| ML | sklearn |\n| Track | MLflow |\n| Monitor | Prom |\n| Visual | Grafana |",
+        "mode": "markdown"
+      },
+      "title": "Technology",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 6, "w": 4, "x": 16, "y": 1 },
+      "id": 205,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "# Training Dataset\n\n📁 **Source:**\n`features_sample.parquet`\n\n📊 **Size:** 1,140 samples\n\n🔀 **Split:**\n- Train: 80% (912)\n- Test: 20% (228)\n\n⚖️ **Class Balance:**\n- Normal: 57% (650)\n- Spike: 43% (490)\n\n✅ **5-Fold CV**",
+        "mode": "markdown"
+      },
+      "title": "Training Data",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 6, "w": 4, "x": 20, "y": 1 },
+      "id": 206,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "# Expected Live\n\n📈 **Expected Dist:**\n- Normal: ~85-95%\n- Spike: ~5-15%\n\n⚠️ **Spike Triggers:**\n- High volatility\n- Large spreads\n- Order imbalance\n\n🎯 **Threshold:** 0.5\n\n📉 **Drift Watch:**\nIf spike > 30%",
+        "mode": "markdown"
+      },
+      "title": "Live Expected",
+      "type": "text"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+      "id": 207,
+      "panels": [],
+      "title": "Dataset & Distribution",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 8 },
+      "id": 208,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "## Training Dataset Details\n\n| Metric | Value |\n|--------|-------|\n| **Total Samples** | 1,140 |\n| **Features** | 10 |\n| **Target** | is_spike (binary) |\n| **Time Range** | Nov 8, 2025 |\n| **Product** | BTC-USD |\n| **Frequency** | ~1 tick/sec |\n\n### Features Used\n`realized_volatility_300s`, `realized_volatility_60s`, `log_return_300s`, `spread_mean_300s`, `trade_intensity_300s`, `order_book_imbalance_300s`, `price_velocity_300s`, `spread_mean_60s`, `order_book_imbalance_60s`, `order_book_imbalance_30s`",
+        "mode": "markdown"
+      },
+      "title": "Dataset Overview",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 8 },
+      "id": 209,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "## Class Distribution (Training)\n\n```\n┌────────────────────────────────────┐\n│ Normal (0)  ████████████████  57%  │\n│ Spike  (1)  ████████████      43%  │\n└────────────────────────────────────┘\n```\n\n| Class | Count | Percentage |\n|-------|-------|------------|\n| Normal | 650 | 57.0% |\n| Spike | 490 | 43.0% |\n| **Total** | **1,140** | **100%** |\n\n*Note: Class weights applied during training*",
+        "mode": "markdown"
+      },
+      "title": "Training Distribution",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 8 },
+      "id": 210,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "## Expected Live Distribution\n\n```\n┌────────────────────────────────────┐\n│ Normal (0)  ██████████████████ 90% │\n│ Spike  (1)  ██                 10% │\n└────────────────────────────────────┘\n```\n\n### Drift Alerts\n| Condition | Action |\n|-----------|--------|\n| Spike > 30% | ⚠️ Review model |\n| Spike > 50% | 🔴 Retrain needed |\n| Spike < 1% | ⚠️ Check features |\n\n*Real market has fewer spikes than training set*",
+        "mode": "markdown"
+      },
+      "title": "Expected Live Distribution",
+      "type": "text"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
       "id": 100,
       "panels": [],
       "title": "System Health",
@@ -44,7 +168,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 1 },
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 14 },
       "id": 1,
       "options": {
         "colorMode": "value",
@@ -80,7 +204,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 1 },
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 14 },
       "id": 2,
       "options": {
         "colorMode": "value",
@@ -118,7 +242,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 1 },
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 14 },
       "id": 3,
       "options": {
         "colorMode": "value",
@@ -152,7 +276,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 1 },
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 14 },
       "id": 4,
       "options": {
         "colorMode": "background",
@@ -181,7 +305,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 1 },
+      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 14 },
       "id": 5,
       "options": {
         "colorMode": "value",
@@ -210,7 +334,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 1 },
+      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 14 },
       "id": 6,
       "options": {
         "colorMode": "value",
@@ -230,7 +354,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
       "id": 105,
       "panels": [],
       "title": "Hardware Performance",
@@ -257,7 +381,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 5 },
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 18 },
       "id": 50,
       "options": {
         "colorMode": "value",
@@ -296,7 +420,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 5 },
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 18 },
       "id": 51,
       "options": {
         "colorMode": "value",
@@ -332,7 +456,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 5 },
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 18 },
       "id": 52,
       "options": {
         "colorMode": "value",
@@ -377,7 +501,7 @@
           { "matcher": { "id": "byName", "options": "Memory" }, "properties": [ { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } } ] }
         ]
       },
-      "gridPos": { "h": 3, "w": 12, "x": 12, "y": 5 },
+      "gridPos": { "h": 3, "w": 12, "x": 12, "y": 18 },
       "id": 53,
       "options": {
         "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
@@ -392,7 +516,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 },
       "id": 103,
       "panels": [],
       "title": "Model Comparison & Feature Importance",
@@ -400,7 +524,7 @@
     },
     {
       "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 9 },
+      "gridPos": { "h": 7, "w": 6, "x": 0, "y": 22 },
       "id": 30,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
@@ -412,7 +536,7 @@
     },
     {
       "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 9 },
+      "gridPos": { "h": 7, "w": 6, "x": 6, "y": 22 },
       "id": 35,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
@@ -424,7 +548,7 @@
     },
     {
       "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 9 },
+      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 22 },
       "id": 36,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
@@ -436,7 +560,7 @@
     },
     {
       "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 9 },
+      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 22 },
       "id": 37,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
@@ -448,7 +572,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 29 },
       "id": 104,
       "panels": [],
       "title": "Real-Time Features & Predictions",
@@ -476,7 +600,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 18 },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 30 },
       "id": 40,
       "options": {
         "legend": { "calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom", "showLegend": true },
@@ -510,7 +634,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 18 },
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 30 },
       "id": 41,
       "options": {
         "legend": { "calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom", "showLegend": true },
@@ -548,7 +672,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 18 },
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 30 },
       "id": 45,
       "options": {
         "legend": { "calcs": ["lastNotNull", "mean"], "displayMode": "list", "placement": "bottom", "showLegend": true },
@@ -563,7 +687,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 35 },
       "id": 101,
       "panels": [],
       "title": "Latency & Performance",
@@ -591,7 +715,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 24 },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 36 },
       "id": 10,
       "options": {
         "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
@@ -627,7 +751,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 24 },
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 36 },
       "id": 11,
       "options": {
         "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
@@ -641,7 +765,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 29 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 },
       "id": 102,
       "panels": [],
       "title": "Model Performance (Real-Time)",
@@ -669,7 +793,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 30 },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 42 },
       "id": 20,
       "options": {
         "legend": { "calcs": ["mean"], "displayMode": "list", "placement": "bottom", "showLegend": true },
@@ -706,7 +830,7 @@
           { "matcher": { "id": "byName", "options": "prediction=1" }, "properties": [ { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }, { "id": "displayName", "value": "Spike" } ] }
         ]
       },
-      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 30 },
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 42 },
       "id": 21,
       "options": {
         "legend": { "calcs": ["sum"], "displayMode": "list", "placement": "bottom", "showLegend": true },
@@ -729,7 +853,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 30 },
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 42 },
       "id": 22,
       "options": {
         "colorMode": "value",
@@ -760,7 +884,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 30 },
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 42 },
       "id": 24,
       "options": {
         "colorMode": "background",
