@@ -1,0 +1,140 @@
+{
+  "timestamp": "2025-11-25T14:30:58.610542",
+  "features_file": "data/processed/features_sample.parquet",
+  "n_samples": 1000,
+  "n_features": 24,
+  "test_size": 0.3,
+  "results": [
+    {
+      "model_name": "Z-Score Baseline",
+      "threshold": 0.3500000000000001,
+      "n_samples": 300,
+      "n_positive": 57,
+      "n_predicted_positive": 88,
+      "accuracy": 0.7633333333333333,
+      "precision": 0.42045454545454547,
+      "recall": 0.6491228070175439,
+      "f1": 0.5103448275862069,
+      "roc_auc": 0.6807811710345824,
+      "pr_auc": 0.32742482990785193,
+      "train_time_s": 0.0010008811950683594,
+      "inference_time_ms": 0.9984970092773438,
+      "inference_per_sample_ms": 0.0033283233642578125,
+      "confusion_matrix": [
+        [
+          192,
+          51
+        ],
+        [
+          20,
+          37
+        ]
+      ]
+    },
+    {
+      "model_name": "Logistic Regression",
+      "threshold": 0.1,
+      "n_samples": 300,
+      "n_positive": 57,
+      "n_predicted_positive": 53,
+      "accuracy": 0.9666666666666667,
+      "precision": 0.9433962264150944,
+      "recall": 0.8771929824561403,
+      "f1": 0.9090909090909091,
+      "roc_auc": 0.9891704570067142,
+      "pr_auc": 0.8916876955683075,
+      "train_time_s": 0.03226971626281738,
+      "inference_time_ms": 1.004934310913086,
+      "inference_per_sample_ms": 0.003349781036376953,
+      "confusion_matrix": [
+        [
+          240,
+          3
+        ],
+        [
+          7,
+          50
+        ]
+      ]
+    },
+    {
+      "model_name": "Random Forest",
+      "threshold": 0.15000000000000002,
+      "n_samples": 300,
+      "n_positive": 57,
+      "n_predicted_positive": 27,
+      "accuracy": 0.7866666666666666,
+      "precision": 0.37037037037037035,
+      "recall": 0.17543859649122806,
+      "f1": 0.23809523809523808,
+      "roc_auc": 0.40903183885640026,
+      "pr_auc": 0.2948138902372312,
+      "train_time_s": 0.11714982986450195,
+      "inference_time_ms": 29.35504913330078,
+      "inference_per_sample_ms": 0.09785016377766927,
+      "confusion_matrix": [
+        [
+          226,
+          17
+        ],
+        [
+          47,
+          10
+        ]
+      ]
+    },
+    {
+      "model_name": "Gradient Boosting",
+      "threshold": 0.1,
+      "n_samples": 300,
+      "n_positive": 57,
+      "n_predicted_positive": 4,
+      "accuracy": 0.8166666666666667,
+      "precision": 0.75,
+      "recall": 0.05263157894736842,
+      "f1": 0.09836065573770492,
+      "roc_auc": 0.9275503573749188,
+      "pr_auc": 0.8406951340615689,
+      "train_time_s": 0.19557881355285645,
+      "inference_time_ms": 1.0058879852294922,
+      "inference_per_sample_ms": 0.003352959950764974,
+      "confusion_matrix": [
+        [
+          242,
+          1
+        ],
+        [
+          54,
+          3
+        ]
+      ]
+    },
+    {
+      "model_name": "Random Forest (Deep)",
+      "threshold": 0.15000000000000002,
+      "n_samples": 300,
+      "n_positive": 57,
+      "n_predicted_positive": 27,
+      "accuracy": 0.7866666666666666,
+      "precision": 0.37037037037037035,
+      "recall": 0.17543859649122806,
+      "f1": 0.23809523809523808,
+      "roc_auc": 0.4108006642119703,
+      "pr_auc": 0.3251305521328405,
+      "train_time_s": 0.25936388969421387,
+      "inference_time_ms": 40.00568389892578,
+      "inference_per_sample_ms": 0.13335227966308594,
+      "confusion_matrix": [
+        [
+          226,
+          17
+        ],
+        [
+          47,
+          10
+        ]
+      ]
+    }
+  ],
+  "recommendation": "Logistic Regression"
+}
