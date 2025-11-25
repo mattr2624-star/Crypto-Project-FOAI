@@ -17,19 +17,19 @@ prs.slide_width = Inches(13.333)
 prs.slide_height = Inches(7.5)
 
 # Color scheme
-DARK_BG = RGBColor(0x1a, 0x1a, 0x2e)
-ACCENT_BLUE = RGBColor(0x00, 0xd4, 0xff)
-ACCENT_GREEN = RGBColor(0x00, 0xff, 0x88)
-ACCENT_PURPLE = RGBColor(0x8b, 0x5c, 0xf6)
-WHITE = RGBColor(0xff, 0xff, 0xff)
-GRAY = RGBColor(0xaa, 0xaa, 0xaa)
+DARK_BG = RGBColor(0x1A, 0x1A, 0x2E)
+ACCENT_BLUE = RGBColor(0x00, 0xD4, 0xFF)
+ACCENT_GREEN = RGBColor(0x00, 0xFF, 0x88)
+ACCENT_PURPLE = RGBColor(0x8B, 0x5C, 0xF6)
+WHITE = RGBColor(0xFF, 0xFF, 0xFF)
+GRAY = RGBColor(0xAA, 0xAA, 0xAA)
 
 
 def add_title_slide(prs, title, subtitle, presenter):
     """Add a title slide."""
     slide_layout = prs.slide_layouts[6]  # Blank
     slide = prs.slides.add_slide(slide_layout)
-    
+
     # Background
     background = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height
@@ -37,9 +37,11 @@ def add_title_slide(prs, title, subtitle, presenter):
     background.fill.solid()
     background.fill.fore_color.rgb = DARK_BG
     background.line.fill.background()
-    
+
     # Title
-    title_box = slide.shapes.add_textbox(Inches(0.5), Inches(2.5), Inches(12.3), Inches(1.5))
+    title_box = slide.shapes.add_textbox(
+        Inches(0.5), Inches(2.5), Inches(12.3), Inches(1.5)
+    )
     tf = title_box.text_frame
     p = tf.paragraphs[0]
     p.text = title
@@ -47,25 +49,29 @@ def add_title_slide(prs, title, subtitle, presenter):
     p.font.bold = True
     p.font.color.rgb = WHITE
     p.alignment = PP_ALIGN.CENTER
-    
+
     # Subtitle
-    sub_box = slide.shapes.add_textbox(Inches(0.5), Inches(4.2), Inches(12.3), Inches(0.8))
+    sub_box = slide.shapes.add_textbox(
+        Inches(0.5), Inches(4.2), Inches(12.3), Inches(0.8)
+    )
     tf = sub_box.text_frame
     p = tf.paragraphs[0]
     p.text = subtitle
     p.font.size = Pt(28)
     p.font.color.rgb = ACCENT_BLUE
     p.alignment = PP_ALIGN.CENTER
-    
+
     # Presenter
-    pres_box = slide.shapes.add_textbox(Inches(0.5), Inches(5.5), Inches(12.3), Inches(0.5))
+    pres_box = slide.shapes.add_textbox(
+        Inches(0.5), Inches(5.5), Inches(12.3), Inches(0.5)
+    )
     tf = pres_box.text_frame
     p = tf.paragraphs[0]
     p.text = f"Presented by: {presenter}"
     p.font.size = Pt(20)
     p.font.color.rgb = GRAY
     p.alignment = PP_ALIGN.CENTER
-    
+
     return slide
 
 
@@ -73,7 +79,7 @@ def add_content_slide(prs, title, content_items, presenter_role=None):
     """Add a content slide with bullet points."""
     slide_layout = prs.slide_layouts[6]  # Blank
     slide = prs.slides.add_slide(slide_layout)
-    
+
     # Background
     background = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height
@@ -81,35 +87,39 @@ def add_content_slide(prs, title, content_items, presenter_role=None):
     background.fill.solid()
     background.fill.fore_color.rgb = DARK_BG
     background.line.fill.background()
-    
+
     # Title bar
     title_bar = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, Inches(1.2)
     )
     title_bar.fill.solid()
-    title_bar.fill.fore_color.rgb = RGBColor(0x2a, 0x2a, 0x4a)
+    title_bar.fill.fore_color.rgb = RGBColor(0x2A, 0x2A, 0x4A)
     title_bar.line.fill.background()
-    
+
     # Title
-    title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.3), Inches(0.8))
+    title_box = slide.shapes.add_textbox(
+        Inches(0.5), Inches(0.3), Inches(12.3), Inches(0.8)
+    )
     tf = title_box.text_frame
     p = tf.paragraphs[0]
     p.text = title
     p.font.size = Pt(36)
     p.font.bold = True
     p.font.color.rgb = WHITE
-    
+
     # Content
-    content_box = slide.shapes.add_textbox(Inches(0.7), Inches(1.5), Inches(12), Inches(5.5))
+    content_box = slide.shapes.add_textbox(
+        Inches(0.7), Inches(1.5), Inches(12), Inches(5.5)
+    )
     tf = content_box.text_frame
     tf.word_wrap = True
-    
+
     for i, item in enumerate(content_items):
         if i == 0:
             p = tf.paragraphs[0]
         else:
             p = tf.add_paragraph()
-        
+
         if isinstance(item, tuple):
             # (text, level) format
             text, level = item
@@ -118,28 +128,32 @@ def add_content_slide(prs, title, content_items, presenter_role=None):
         else:
             p.text = "• " + item
             p.font.size = Pt(22)
-        
+
         p.font.color.rgb = WHITE
         p.space_after = Pt(12)
-    
+
     # Presenter role badge
     if presenter_role:
-        badge = slide.shapes.add_textbox(Inches(10.5), Inches(6.8), Inches(2.5), Inches(0.4))
+        badge = slide.shapes.add_textbox(
+            Inches(10.5), Inches(6.8), Inches(2.5), Inches(0.4)
+        )
         tf = badge.text_frame
         p = tf.paragraphs[0]
         p.text = presenter_role
         p.font.size = Pt(14)
         p.font.color.rgb = ACCENT_PURPLE
         p.alignment = PP_ALIGN.RIGHT
-    
+
     return slide
 
 
-def add_two_column_slide(prs, title, left_title, left_items, right_title, right_items, presenter_role=None):
+def add_two_column_slide(
+    prs, title, left_title, left_items, right_title, right_items, presenter_role=None
+):
     """Add a two-column content slide."""
     slide_layout = prs.slide_layouts[6]  # Blank
     slide = prs.slides.add_slide(slide_layout)
-    
+
     # Background
     background = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height
@@ -147,35 +161,41 @@ def add_two_column_slide(prs, title, left_title, left_items, right_title, right_
     background.fill.solid()
     background.fill.fore_color.rgb = DARK_BG
     background.line.fill.background()
-    
+
     # Title bar
     title_bar = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, Inches(1.2)
     )
     title_bar.fill.solid()
-    title_bar.fill.fore_color.rgb = RGBColor(0x2a, 0x2a, 0x4a)
+    title_bar.fill.fore_color.rgb = RGBColor(0x2A, 0x2A, 0x4A)
     title_bar.line.fill.background()
-    
+
     # Title
-    title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.3), Inches(0.8))
+    title_box = slide.shapes.add_textbox(
+        Inches(0.5), Inches(0.3), Inches(12.3), Inches(0.8)
+    )
     tf = title_box.text_frame
     p = tf.paragraphs[0]
     p.text = title
     p.font.size = Pt(36)
     p.font.bold = True
     p.font.color.rgb = WHITE
-    
+
     # Left column title
-    left_title_box = slide.shapes.add_textbox(Inches(0.5), Inches(1.4), Inches(5.8), Inches(0.5))
+    left_title_box = slide.shapes.add_textbox(
+        Inches(0.5), Inches(1.4), Inches(5.8), Inches(0.5)
+    )
     tf = left_title_box.text_frame
     p = tf.paragraphs[0]
     p.text = left_title
     p.font.size = Pt(24)
     p.font.bold = True
     p.font.color.rgb = ACCENT_BLUE
-    
+
     # Left column content
-    left_box = slide.shapes.add_textbox(Inches(0.5), Inches(2), Inches(5.8), Inches(4.5))
+    left_box = slide.shapes.add_textbox(
+        Inches(0.5), Inches(2), Inches(5.8), Inches(4.5)
+    )
     tf = left_box.text_frame
     tf.word_wrap = True
     for i, item in enumerate(left_items):
@@ -184,18 +204,22 @@ def add_two_column_slide(prs, title, left_title, left_items, right_title, right_
         p.font.size = Pt(18)
         p.font.color.rgb = WHITE
         p.space_after = Pt(8)
-    
+
     # Right column title
-    right_title_box = slide.shapes.add_textbox(Inches(6.8), Inches(1.4), Inches(5.8), Inches(0.5))
+    right_title_box = slide.shapes.add_textbox(
+        Inches(6.8), Inches(1.4), Inches(5.8), Inches(0.5)
+    )
     tf = right_title_box.text_frame
     p = tf.paragraphs[0]
     p.text = right_title
     p.font.size = Pt(24)
     p.font.bold = True
     p.font.color.rgb = ACCENT_GREEN
-    
+
     # Right column content
-    right_box = slide.shapes.add_textbox(Inches(6.8), Inches(2), Inches(5.8), Inches(4.5))
+    right_box = slide.shapes.add_textbox(
+        Inches(6.8), Inches(2), Inches(5.8), Inches(4.5)
+    )
     tf = right_box.text_frame
     tf.word_wrap = True
     for i, item in enumerate(right_items):
@@ -204,17 +228,19 @@ def add_two_column_slide(prs, title, left_title, left_items, right_title, right_
         p.font.size = Pt(18)
         p.font.color.rgb = WHITE
         p.space_after = Pt(8)
-    
+
     # Presenter role badge
     if presenter_role:
-        badge = slide.shapes.add_textbox(Inches(10.5), Inches(6.8), Inches(2.5), Inches(0.4))
+        badge = slide.shapes.add_textbox(
+            Inches(10.5), Inches(6.8), Inches(2.5), Inches(0.4)
+        )
         tf = badge.text_frame
         p = tf.paragraphs[0]
         p.text = presenter_role
         p.font.size = Pt(14)
         p.font.color.rgb = ACCENT_PURPLE
         p.alignment = PP_ALIGN.RIGHT
-    
+
     return slide
 
 
@@ -222,7 +248,7 @@ def add_metrics_slide(prs, title, metrics, presenter_role=None):
     """Add a slide with key metrics in boxes."""
     slide_layout = prs.slide_layouts[6]  # Blank
     slide = prs.slides.add_slide(slide_layout)
-    
+
     # Background
     background = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height
@@ -230,46 +256,50 @@ def add_metrics_slide(prs, title, metrics, presenter_role=None):
     background.fill.solid()
     background.fill.fore_color.rgb = DARK_BG
     background.line.fill.background()
-    
+
     # Title bar
     title_bar = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, Inches(1.2)
     )
     title_bar.fill.solid()
-    title_bar.fill.fore_color.rgb = RGBColor(0x2a, 0x2a, 0x4a)
+    title_bar.fill.fore_color.rgb = RGBColor(0x2A, 0x2A, 0x4A)
     title_bar.line.fill.background()
-    
+
     # Title
-    title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.3), Inches(0.8))
+    title_box = slide.shapes.add_textbox(
+        Inches(0.5), Inches(0.3), Inches(12.3), Inches(0.8)
+    )
     tf = title_box.text_frame
     p = tf.paragraphs[0]
     p.text = title
     p.font.size = Pt(36)
     p.font.bold = True
     p.font.color.rgb = WHITE
-    
+
     # Metric boxes
     box_width = Inches(2.8)
     box_height = Inches(2)
     start_x = Inches(0.7)
     start_y = Inches(1.8)
     gap = Inches(0.3)
-    
-    colors = [ACCENT_BLUE, ACCENT_GREEN, ACCENT_PURPLE, RGBColor(0xff, 0x88, 0x00)]
-    
+
+    colors = [ACCENT_BLUE, ACCENT_GREEN, ACCENT_PURPLE, RGBColor(0xFF, 0x88, 0x00)]
+
     for i, (label, value) in enumerate(metrics):
         row = i // 4
         col = i % 4
         x = start_x + col * (box_width + gap)
         y = start_y + row * (box_height + gap)
-        
+
         # Box
-        box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, box_width, box_height)
+        box = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE, x, y, box_width, box_height
+        )
         box.fill.solid()
-        box.fill.fore_color.rgb = RGBColor(0x2a, 0x2a, 0x4a)
+        box.fill.fore_color.rgb = RGBColor(0x2A, 0x2A, 0x4A)
         box.line.color.rgb = colors[i % len(colors)]
         box.line.width = Pt(2)
-        
+
         # Value
         val_box = slide.shapes.add_textbox(x, y + Inches(0.3), box_width, Inches(1))
         tf = val_box.text_frame
@@ -279,7 +309,7 @@ def add_metrics_slide(prs, title, metrics, presenter_role=None):
         p.font.bold = True
         p.font.color.rgb = colors[i % len(colors)]
         p.alignment = PP_ALIGN.CENTER
-        
+
         # Label
         lbl_box = slide.shapes.add_textbox(x, y + Inches(1.3), box_width, Inches(0.5))
         tf = lbl_box.text_frame
@@ -288,17 +318,19 @@ def add_metrics_slide(prs, title, metrics, presenter_role=None):
         p.font.size = Pt(16)
         p.font.color.rgb = GRAY
         p.alignment = PP_ALIGN.CENTER
-    
+
     # Presenter role badge
     if presenter_role:
-        badge = slide.shapes.add_textbox(Inches(10.5), Inches(6.8), Inches(2.5), Inches(0.4))
+        badge = slide.shapes.add_textbox(
+            Inches(10.5), Inches(6.8), Inches(2.5), Inches(0.4)
+        )
         tf = badge.text_frame
         p = tf.paragraphs[0]
         p.text = presenter_role
         p.font.size = Pt(14)
         p.font.color.rgb = ACCENT_PURPLE
         p.alignment = PP_ALIGN.RIGHT
-    
+
     return slide
 
 
@@ -309,7 +341,7 @@ add_title_slide(
     prs,
     "Crypto Volatility Detection",
     "Real-Time AI Service for BTC-USD Spike Prediction",
-    "Team Lead"
+    "Team Lead",
 )
 
 # ============================================================================
@@ -328,7 +360,7 @@ add_content_slide(
         ("Docker-based deployment with one-command startup", 1),
         ("Grafana dashboards for real-time observability", 1),
     ],
-    "Team Lead"
+    "Team Lead",
 )
 
 # ============================================================================
@@ -355,7 +387,7 @@ add_two_column_slide(
         "Monitoring: Prometheus + Grafana",
         "Container: Docker Compose",
     ],
-    "Team Lead"
+    "Team Lead",
 )
 
 # ============================================================================
@@ -382,7 +414,7 @@ add_two_column_slide(
         "Recall: 87.72%",
         "Inference: 0.003 ms/sample",
     ],
-    "ML Engineer"
+    "ML Engineer",
 )
 
 # ============================================================================
@@ -409,7 +441,7 @@ add_two_column_slide(
         "GridSearchCV optimization",
         "All CPU cores utilized (n_jobs=-1)",
     ],
-    "ML Engineer"
+    "ML Engineer",
 )
 
 # ============================================================================
@@ -436,7 +468,7 @@ add_two_column_slide(
         "CI/CD: GitHub Actions",
         "Black + Ruff linting",
     ],
-    "Backend/DevOps"
+    "Backend/DevOps",
 )
 
 # ============================================================================
@@ -455,7 +487,7 @@ add_metrics_slide(
         ("Drift Detection", "Evidently"),
         ("Rollback", "ml|baseline"),
     ],
-    "Backend/DevOps"
+    "Backend/DevOps",
 )
 
 # ============================================================================
@@ -476,13 +508,14 @@ add_content_slide(
         "Demo video: 8-minute walkthrough",
         ("Startup → Prediction → Failure Recovery → Rollback", 1),
     ],
-    "All Team Members"
+    "All Team Members",
 )
 
 # ============================================================================
 # Save the presentation
 # ============================================================================
-output_path = os.path.join(os.path.dirname(__file__), "..", "docs", "Crypto_Volatility_Presentation.pptx")
+output_path = os.path.join(
+    os.path.dirname(__file__), "..", "docs", "Crypto_Volatility_Presentation.pptx"
+)
 prs.save(output_path)
 print(f"Presentation saved to: {output_path}")
-
