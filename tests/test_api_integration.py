@@ -32,7 +32,10 @@ def check_api_available(api_base_url: str) -> bool:
         return False
 
 
-# Sample feature data matching the expected format
+# Sample feature data - Assignment API format (simple names)
+SAMPLE_ROWS = [{"ret_mean": 0.05, "ret_std": 0.01, "n": 50}]
+
+# Sample feature data - Full feature names (for legacy endpoint)
 SAMPLE_FEATURES = {
     "log_return_300s": 0.001,
     "spread_mean_300s": 0.5,
@@ -70,7 +73,7 @@ async def test_health_endpoint(api_base_url):
 
 @pytest.mark.asyncio
 async def test_version_endpoint(api_base_url):
-    """Test /version endpoint returns version info."""
+    """Test /version endpoint returns version info - Assignment API."""
     if not check_api_available(api_base_url):
         pytest.skip(f"API server not available at {api_base_url}")
 
@@ -78,20 +81,46 @@ async def test_version_endpoint(api_base_url):
         response = await client.get(f"{api_base_url}/version")
         assert response.status_code == 200
         data = response.json()
-        assert "version" in data
+        # Assignment API contract
         assert "model" in data
-        assert "model_path" in data
+        assert "sha" in data
+        assert "version" in data
+        assert "model_variant" in data
 
 
 @pytest.mark.asyncio
 async def test_predict_endpoint(api_base_url):
-    """Test /predict endpoint with sample features."""
+    """Test /predict endpoint with Assignment API format."""
+    if not check_api_available(api_base_url):
+        pytest.skip(f"API server not available at {api_base_url}")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        # Assignment API contract: {"rows": [...]} -> {"scores": [...]}
+        response = await client.post(
+            f"{api_base_url}/predict", json={"rows": SAMPLE_ROWS}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        # Assignment API response format
+        assert "scores" in data
+        assert "model_variant" in data
+        assert "version" in data
+        assert "ts" in data
+        assert isinstance(data["scores"], list)
+        assert len(data["scores"]) == len(SAMPLE_ROWS)
+        for score in data["scores"]:
+            assert 0.0 <= score <= 1.0
+
+
+@pytest.mark.asyncio
+async def test_predict_legacy_endpoint(api_base_url):
+    """Test /predict/legacy endpoint with full feature names."""
     if not check_api_available(api_base_url):
         pytest.skip(f"API server not available at {api_base_url}")
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.post(
-            f"{api_base_url}/predict", json={"features": SAMPLE_FEATURES}
+            f"{api_base_url}/predict/legacy", json={"features": SAMPLE_FEATURES}
         )
         assert response.status_code == 200
         data = response.json()

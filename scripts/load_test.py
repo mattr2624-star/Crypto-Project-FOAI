@@ -12,7 +12,12 @@ from typing import List, Dict
 import json
 from pathlib import Path
 
-# Sample feature data matching the expected format
+# Sample feature data - Assignment API format
+SAMPLE_REQUEST = {
+    "rows": [{"ret_mean": 0.05, "ret_std": 0.01, "n": 50}]
+}
+
+# Legacy feature format (for backward compatibility testing)
 SAMPLE_FEATURES = {
     "log_return_300s": 0.001,
     "spread_mean_300s": 0.5,
@@ -32,7 +37,7 @@ async def send_request(client: httpx.AsyncClient, url: str, request_id: int) -> 
     start_time = time.time()
     try:
         response = await client.post(
-            url, json={"features": SAMPLE_FEATURES}, timeout=10.0
+            url, json=SAMPLE_REQUEST, timeout=10.0
         )
         elapsed_ms = (time.time() - start_time) * 1000
 
@@ -156,12 +161,10 @@ def print_results(stats: Dict):
     p95_latency = stats["latency_ms"]["p95"]
     print()
     print("SLO Compliance:")
-    print(
-        f"  p95 ≤ 800ms:        {'✓ PASS' if p95_latency <= 800 else '✗ FAIL'} ({p95_latency:.2f}ms)"
-    )
-    print(
-        f"  Success Rate ≥ 99%: {'✓ PASS' if stats['success_rate'] >= 99 else '✗ FAIL'} ({stats['success_rate']:.1f}%)"
-    )
+    p95_pass = "PASS" if p95_latency <= 800 else "FAIL"
+    success_pass = "PASS" if stats['success_rate'] >= 99 else "FAIL"
+    print(f"  p95 <= 800ms:       [{p95_pass}] ({p95_latency:.2f}ms)")
+    print(f"  Success Rate >= 99%: [{success_pass}] ({stats['success_rate']:.1f}%)")
 
 
 def main():

@@ -6,9 +6,37 @@ on:
   pull_request:
     branches: [ main, master ]
 
+env:
+  MODEL_PATH: models/artifacts/random_forest/model.pkl
+  MODEL_VARIANT: ml
+
 jobs:
-  lint-and-test:
+  lint:
     runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+    
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install black ruff
+    
+    - name: Run Black (code formatting check)
+      run: |
+        black --check --diff .
+    
+    - name: Run Ruff (linting)
+      run: |
+        ruff check .
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
     
     steps:
     - uses: actions/checkout@v4
@@ -24,22 +52,12 @@ jobs:
         pip install -r requirements.txt
         # Install API-specific dependencies needed for testing
         pip install slowapi python-json-logger
-        pip install ruff pytest pytest-asyncio httpx
-    
-    - name: Run Black (code formatting check)
-      run: |
-        black --check --diff .
-    
-    - name: Run Ruff (linting)
-      run: |
-        ruff check .
+        pip install pytest pytest-asyncio httpx
     
     - name: Start API server
       run: |
         # Start API server in background
         python -m uvicorn api.app:app --host 0.0.0.0 --port 8000 &
-        API_PID=$!
-        echo "API_PID=$API_PID" >> $GITHUB_ENV
         
         # Wait for API to be ready
         echo "Waiting for API server to start..."
@@ -54,45 +72,77 @@ jobs:
           fi
           sleep 1
         done
-      env:
-        MODEL_PATH: models/artifacts/random_forest/model.pkl
     
-    - name: Run integration test
+    - name: Test API endpoints
       run: |
-        pytest tests/ -v
-      env:
-        MODEL_PATH: models/artifacts/random_forest/model.pkl
+        echo "Testing /health endpoint..."
+        curl -f http://localhost:8000/health
+        
+        echo -e "\n\nTesting /version endpoint..."
+        curl -f http://localhost:8000/version
+        
+        echo -e "\n\nTesting /predict endpoint (Assignment API)..."
+        curl -f -X POST http://localhost:8000/predict \
+          -H "Content-Type: application/json" \
+          -d '{"rows":[{"ret_mean":0.05,"ret_std":0.01,"n":50}]}'
+        
+        echo -e "\n\n✓ All API endpoint tests passed!"
+    
+    - name: Run pytest integration tests
+      run: |
+        pytest tests/ -v --tb=short
     
     - name: Stop API server
       if: always()
       run: |
-        if [ ! -z "$API_PID" ]; then
-          kill $API_PID || true
-        fi
-        # Also kill any remaining uvicorn processes
         pkill -f "uvicorn api.app:app" || true
+
+  replay:
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
     
     - name: Run replay test (reproducibility)
       run: |
-        # Check if test data exists
+        # Check for sample data files
         if [ -f "data/raw/ticks_10min_sample.ndjson" ]; then
-          echo "Running replay test with sample data..."
-          python scripts/replay.py \
-            --raw data/raw/ticks_10min_sample.ndjson \
-            --out /tmp/features_replay_test.parquet \
-            --add-labels \
-            --label-threshold-percentile 90
-          echo "✓ Replay test passed - features generated successfully"
-        elif [ -f "data/raw/ticks_BTCUSD_20251109_130539.ndjson" ]; then
-          echo "Running replay test with available data..."
-          python scripts/replay.py \
-            --raw data/raw/ticks_BTCUSD_20251109_130539.ndjson \
-            --out /tmp/features_replay_test.parquet \
-            --add-labels \
-            --label-threshold-percentile 90
-          echo "✓ Replay test passed - features generated successfully"
+          DATA_FILE="data/raw/ticks_10min_sample.ndjson"
+        elif [ -f "data/raw/ticks_BTCUSD_20251108_151231.ndjson" ]; then
+          DATA_FILE="data/raw/ticks_BTCUSD_20251108_151231.ndjson"
         else
-          echo "⚠ No test data found, skipping replay test"
-          echo "To enable replay test, add data/raw/ticks_10min_sample.ndjson"
+          echo "⚠ No test data found, creating minimal test data..."
+          mkdir -p data/raw
+          echo '{"timestamp":"2025-11-08T15:12:31.000000","product_id":"BTC-USD","price":"76000.00","best_bid":"75999.00","best_ask":"76001.00"}' > data/raw/ticks_10min_sample.ndjson
+          DATA_FILE="data/raw/ticks_10min_sample.ndjson"
         fi
+        
+        echo "Running replay test with: $DATA_FILE"
+        python scripts/replay.py \
+          --raw "$DATA_FILE" \
+          --out /tmp/features_replay_test.parquet \
+          --add-labels \
+          --label-threshold-percentile 90
+        
+        echo "✓ Replay test passed - features generated successfully"
+        
+        # Verify output file exists and has content
+        python -c "
+        import pandas as pd
+        df = pd.read_parquet('/tmp/features_replay_test.parquet')
+        print(f'Generated {len(df)} feature rows with {len(df.columns)} columns')
+        assert len(df) > 0, 'No features generated!'
+        print('✓ Feature validation passed')
+        "
 

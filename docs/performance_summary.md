@@ -13,11 +13,11 @@ This document summarizes the performance metrics, uptime statistics, and model p
 
 ### Load Test Results
 
-**Test Date:** November 24, 2025  
+**Test Date:** November 25, 2025  
 **Test Configuration:**
-- Total Requests: 100
+- Total Requests: 100 (burst)
 - Concurrent Requests: 10
-- Duration: 1.94 seconds
+- Duration: 0.82 seconds
 
 **Results:**
 ```json
@@ -26,25 +26,25 @@ This document summarizes the performance metrics, uptime statistics, and model p
   "successful_requests": 100,
   "failed_requests": 0,
   "success_rate": 100.0,
-  "requests_per_second": 51.49,
+  "requests_per_second": 121.92,
   "latency_ms": {
-    "min": 131.88,
-    "max": 501.44,
-    "mean": 187.67,
-    "median": 148.39,
-    "p50": 148.39,
-    "p95": 465.73,
-    "p99": 501.40
+    "min": 12.00,
+    "max": 94.17,
+    "mean": 64.24,
+    "median": 67.48,
+    "p50": 67.48,
+    "p95": 91.17,
+    "p99": 94.16
   }
 }
 ```
 
 **Key Findings:**
 - ✅ **100% success rate** - All requests completed successfully
-- ✅ **p95 latency: 465.73ms** - Well below 800ms target (41.8% better than target)
-- ✅ **51.5 requests/second** - Good throughput for real-time predictions
+- ✅ **p95 latency: 91.17ms** - Well below 800ms target (88.6% better than target!)
+- ✅ **121.92 requests/second** - Excellent throughput for real-time predictions
 - ✅ **No errors** - System handled burst load gracefully
-- ✅ **p50 latency: 148.39ms** - Median response time is very fast
+- ✅ **p50 latency: 67.48ms** - Median response time is very fast
 
 **Run Load Test:**
 ```bash
@@ -170,10 +170,11 @@ python scripts/generate_eval_report.py \
 
 | SLO | Target | Current | Status | Notes |
 |-----|--------|---------|--------|-------|
-| p95 Latency ≤ 800ms | ≤ 800ms | 465.73 ms | ✓ PASS | Well below target (41.8% better) |
-| Availability ≥ 99.5% | ≥ 99.5% | 100% (load test) | ✓ PASS | Based on load test results |
-| Error Rate < 1% | < 1% | 0% | ✓ PASS | No errors in load test (100 requests) |
-| Success Rate ≥ 99% | ≥ 99% | 100% | ✓ PASS | All requests successful in load test |
+| p95 Latency ≤ 800ms | ≤ 800ms | 91.17ms | ✅ PASS | 88.6% better than target |
+| Availability ≥ 99.5% | ≥ 99.5% | 100% (load test) | ✅ PASS | Based on load test results |
+| Error Rate < 1% | < 1% | 0% | ✅ PASS | No errors in load test (100 requests) |
+| Success Rate ≥ 99% | ≥ 99% | 100% | ✅ PASS | All requests successful in load test |
+| Throughput | N/A | 121.92 req/s | ✅ GOOD | Handles burst traffic well |
 
 **Note:** SLO compliance metrics are based on load test results (100 requests). Production monitoring would require extended deployment period.
 

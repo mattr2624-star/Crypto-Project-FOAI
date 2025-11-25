@@ -1,10 +1,44 @@
 # Crypto Volatility Detection
 
-**Author:** Melissa Wong  
+**Author:** Matt Ross  
 **Course:** Operationalize AI  
+**Repository:** [github.com/mattr2624-star/Crypto-Project-FOAI](https://github.com/mattr2624-star/Crypto-Project-FOAI)  
 **Date:** November 2025
 
-Real-time cryptocurrency volatility detection system using Coinbase WebSocket API, Kafka, and MLflow.
+Real-time cryptocurrency volatility detection service using Coinbase WebSocket API, Kafka, FastAPI, MLflow, Prometheus, and Grafana.
+
+---
+
+## 🚀 Windows One-Click Setup
+
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) and [Git](https://git-scm.com/download/win) installed.
+
+### Option 1: PowerShell (Recommended)
+```powershell
+# Run this in PowerShell as Administrator
+Set-ExecutionPolicy Bypass -Scope Process -Force
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/mattr2624-star/Crypto-Project-FOAI/master/setup-windows.ps1" -OutFile "$env:TEMP\setup.ps1"
+& "$env:TEMP\setup.ps1"
+```
+
+### Option 2: Manual Clone & Run
+```powershell
+git clone https://github.com/mattr2624-star/Crypto-Project-FOAI.git
+cd Crypto-Project-FOAI
+.\setup-windows.ps1
+```
+
+### Option 3: Double-Click
+1. Download and extract the repository
+2. Double-click `setup.bat`
+
+**After setup, access:**
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| API Docs | http://localhost:8000/docs | - |
+| Grafana | http://localhost:3000 | admin / admin123 |
+| Prometheus | http://localhost:9090 | - |
+| MLflow | http://localhost:5001 | - |
 
 ---
 
@@ -116,16 +150,86 @@ This project builds a complete ML pipeline to detect short-term volatility spike
 
 ---
 
-## 🚀 Quick Start (≤10 Lines)
+## 🚀 Quick Start
 
+### Windows (PowerShell)
+```powershell
+git clone https://github.com/mattr2624-star/Crypto-Project-FOAI.git
+cd Crypto-Project-FOAI\docker
+docker compose up -d
+# Wait ~30 seconds for services to start
+Invoke-RestMethod -Uri "http://localhost:8000/health"
+Invoke-RestMethod -Uri "http://localhost:8000/predict" -Method POST -ContentType "application/json" -Body '{"rows":[{"ret_mean":0.05,"ret_std":0.01,"n":50}]}'
+```
+
+### Linux/Mac (Bash)
 ```bash
-git clone <repository-url> && cd operationaliseai
-python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
-cd docker && docker compose up -d
-curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d '{"features":{"log_return_300s":0.001,"spread_mean_300s":0.5,"trade_intensity_300s":100,"order_book_imbalance_300s":0.6,"spread_mean_60s":0.3,"order_book_imbalance_60s":0.55,"price_velocity_300s":0.0001,"realized_volatility_300s":0.002,"order_book_imbalance_30s":0.52,"realized_volatility_60s":0.0015}}'
+git clone https://github.com/mattr2624-star/Crypto-Project-FOAI.git
+cd Crypto-Project-FOAI/docker && docker compose up -d
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" \
+  -d '{"rows":[{"ret_mean":0.05,"ret_std":0.01,"n":50}]}'
+```
+
+**Expected Response:**
+```json
+{"scores":[0.0012],"model_variant":"ml","version":"v1.2-random_forest","ts":"2025-11-25T10:30:00Z"}
 ```
 
 **That's it!** The API is running at `http://localhost:8000`. See detailed setup below.
+
+### Rollback to Baseline Model
+```powershell
+# PowerShell
+$env:MODEL_VARIANT="baseline"; docker compose up -d api
+```
+```bash
+# Bash
+MODEL_VARIANT=baseline docker compose up -d api
+```
+
+---
+
+## 📜 API Contract
+
+### POST /predict
+Make volatility predictions.
+
+**Request:**
+```json
+{
+  "rows": [{"ret_mean": 0.05, "ret_std": 0.01, "n": 50}]
+}
+```
+
+**Response:**
+```json
+{
+  "scores": [0.74],
+  "model_variant": "ml",
+  "version": "v1.2",
+  "ts": "2025-11-02T14:33:00Z"
+}
+```
+
+### GET /health
+Health check endpoint.
+
+**Response:**
+```json
+{"status": "healthy", "timestamp": "2025-11-25T10:30:00Z", "model_loaded": true, "kafka_connected": true}
+```
+
+### GET /version
+API and model version information.
+
+**Response:**
+```json
+{"model": "random_forest_v1", "sha": "abc123", "version": "v1.2", "model_variant": "ml", "model_path": "/app/models/..."}
+```
+
+### GET /metrics
+Prometheus-format metrics for monitoring.
 
 ---
 

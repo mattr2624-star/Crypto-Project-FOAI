@@ -77,9 +77,29 @@ curl http://localhost:8000/health
 ```json
 {
   "status": "healthy",
-  "timestamp": "2025-11-24T12:00:00Z",
+  "timestamp": "2025-11-25T12:00:00Z",
   "model_loaded": true,
   "kafka_connected": true
+}
+```
+
+### Prediction Endpoint (Assignment API)
+
+```bash
+# PowerShell
+Invoke-RestMethod -Uri "http://localhost:8000/predict" -Method POST -ContentType "application/json" -Body '{"rows":[{"ret_mean":0.05,"ret_std":0.01,"n":50}]}'
+
+# Bash/curl
+curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d '{"rows":[{"ret_mean":0.05,"ret_std":0.01,"n":50}]}'
+```
+
+**Expected Response:**
+```json
+{
+  "scores": [1.0],
+  "model_variant": "baseline",
+  "version": "v1.2-baseline",
+  "ts": "2025-11-25T18:53:40Z"
 }
 ```
 
@@ -320,41 +340,56 @@ If data is lost or corrupted:
 
 ## Model Rollback
 
-### Switch to Baseline Model
+### Switch to Baseline Model (PowerShell)
+
+```powershell
+# 1. Set environment variable and restart
+$env:MODEL_VARIANT="baseline"
+docker compose up -d api
+
+# 2. Wait for API to restart
+Start-Sleep -Seconds 10
+
+# 3. Verify model loaded
+Invoke-RestMethod -Uri "http://localhost:8000/version"
+# Should show "model_variant": "baseline"
+```
+
+### Switch to Baseline Model (Bash)
 
 ```bash
-# 1. Update docker-compose.yaml or set environment variable
-# MODEL_VARIANT=baseline
+# 1. Set environment variable and restart
+MODEL_VARIANT=baseline docker compose up -d api
 
-# 2. Restart API
-docker compose restart api
+# 2. Wait for API to restart
+sleep 10
 
 # 3. Verify model loaded
 curl http://localhost:8000/version
-# Should show "baseline" model
+# Should show "model_variant": "baseline"
 ```
 
 ### Switch Back to ML Model
 
-```bash
-# 1. Set MODEL_VARIANT=ml
-
-# 2. Restart API
-docker compose restart api
-
-# 3. Verify
-curl http://localhost:8000/version
+```powershell
+# PowerShell
+$env:MODEL_VARIANT="ml"
+docker compose up -d api
 ```
 
-### Rollback via Environment Variable
-
 ```bash
-# Set environment variable in docker-compose.yaml
-environment:
-  - MODEL_VARIANT=baseline  # or 'ml'
+# Bash
+MODEL_VARIANT=ml docker compose up -d api
+```
 
-# Restart
-docker compose restart api
+### Verify Rollback
+
+```powershell
+# Check current model
+Invoke-RestMethod -Uri "http://localhost:8000/version" | ConvertTo-Json
+
+# Test prediction still works
+Invoke-RestMethod -Uri "http://localhost:8000/predict" -Method POST -ContentType "application/json" -Body '{"rows":[{"ret_mean":0.05,"ret_std":0.01,"n":50}]}'
 ```
 
 ---

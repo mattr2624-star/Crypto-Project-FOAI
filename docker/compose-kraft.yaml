@@ -64,9 +64,14 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - MODEL_VERSION=random_forest
-      - MODEL_PATH=/app/models/artifacts/random_forest/model.pkl
+      # Model variant toggle: "ml" for trained model, "baseline" for z-score fallback
+      # Change to "baseline" for rollback: MODEL_VARIANT=baseline
+      - MODEL_VARIANT=${MODEL_VARIANT:-ml}
+      - MODEL_VERSION=${MODEL_VERSION:-random_forest}
+      - MODEL_PATH=/app/models/artifacts/${MODEL_VERSION:-random_forest}/model.pkl
+      - BASELINE_MODEL_PATH=/app/models/artifacts/baseline/model.pkl
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - GIT_SHA=${GIT_SHA:-dev}
     volumes:
       - ../models:/app/models:ro
       - ../data:/app/data:ro

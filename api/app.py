@@ -114,14 +114,54 @@ BASELINE_MODEL_PATH = os.getenv(
 )
 
 
-# Request/Response models
+# Request/Response models - Assignment API Contract
+class FeatureRow(BaseModel):
+    """Single row of features for prediction."""
+    
+    # Assignment-compatible feature names (simple)
+    ret_mean: Optional[float] = Field(None, description="Return mean")
+    ret_std: Optional[float] = Field(None, description="Return standard deviation")
+    n: Optional[int] = Field(None, description="Sample count")
+    
+    # Full feature names (internal model features)
+    log_return_300s: Optional[float] = Field(None, description="Log return over 300s")
+    spread_mean_300s: Optional[float] = Field(None, description="Mean spread over 300s")
+    trade_intensity_300s: Optional[float] = Field(None, description="Trade intensity over 300s")
+    order_book_imbalance_300s: Optional[float] = Field(None, description="Order book imbalance over 300s")
+    spread_mean_60s: Optional[float] = Field(None, description="Mean spread over 60s")
+    order_book_imbalance_60s: Optional[float] = Field(None, description="Order book imbalance over 60s")
+    price_velocity_300s: Optional[float] = Field(None, description="Price velocity over 300s")
+    realized_volatility_300s: Optional[float] = Field(None, description="Realized volatility over 300s")
+    order_book_imbalance_30s: Optional[float] = Field(None, description="Order book imbalance over 30s")
+    realized_volatility_60s: Optional[float] = Field(None, description="Realized volatility over 60s")
+    
+    class Config:
+        extra = "allow"  # Allow additional fields
+
+
+class PredictRequest(BaseModel):
+    """Prediction request - Assignment API Contract."""
+    
+    rows: list[FeatureRow] = Field(
+        ...,
+        description="List of feature rows for batch prediction",
+        example=[{"ret_mean": 0.05, "ret_std": 0.01, "n": 50}],
+    )
+
+
+class PredictResponse(BaseModel):
+    """Prediction response - Assignment API Contract."""
+    
+    scores: list[float] = Field(..., description="Prediction probabilities for each row")
+    model_variant: str = Field(..., description="Model variant used (ml or baseline)")
+    version: str = Field(..., description="Model version")
+    ts: str = Field(..., description="Timestamp of prediction")
+
+
+# Legacy request/response models (backward compatibility)
 class FeatureRequest(BaseModel):
     """
-    Model expects 10 features. Missing features will be filled with 0.0.
-    Required features:
-    - log_return_300s, spread_mean_300s, trade_intensity_300s, order_book_imbalance_300s
-    - spread_mean_60s, order_book_imbalance_60s, price_velocity_300s
-    - realized_volatility_300s, order_book_imbalance_30s, realized_volatility_60s
+    Legacy model - expects 10 features. Missing features will be filled with 0.0.
     """
 
     features: Dict[str, float] = Field(
@@ -143,7 +183,7 @@ class FeatureRequest(BaseModel):
 
 
 class PredictionResponse(BaseModel):
-    """Prediction response."""
+    """Legacy prediction response."""
 
     prediction: int = Field(..., description="Binary prediction (0=normal, 1=spike)")
     probability: float = Field(..., description="Prediction probability [0, 1]")
@@ -162,12 +202,13 @@ class HealthResponse(BaseModel):
 
 
 class VersionResponse(BaseModel):
-    """Version information."""
+    """Version information - Assignment API Contract."""
 
+    model: str = Field(..., description="Model name (e.g., rf_v1)")
+    sha: str = Field(..., description="Git commit SHA or version identifier")
     version: str = Field(..., description="API version")
-    model: str = Field(..., description="Model name")
+    model_variant: str = Field(..., description="Model variant (ml or baseline)")
     model_path: str = Field(..., description="Path to model file")
-    api_build_date: str = Field(..., description="API build date")
 
 
 def load_model():
@@ -334,15 +375,22 @@ async def health():
         raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
 
 
-@app.post("/predict", response_model=PredictionResponse)
+@app.post("/predict", response_model=PredictResponse)
 @limiter.limit(
     "1000/minute"
 )  # Generous limit for demo (1000 requests per minute per IP)
-async def predict(request: Request, feature_request: FeatureRequest):
+async def predict(request: Request, predict_request: PredictRequest):
     """
-    Make a volatility prediction.
-
-    Accepts feature dictionary and returns prediction, probability, and alert status.
+    Make volatility predictions - Assignment API Contract.
+    
+    Accepts a list of feature rows and returns prediction scores.
+    
+    Example:
+        POST /predict
+        {"rows": [{"ret_mean": 0.05, "ret_std": 0.01, "n": 50}]}
+        
+        Response:
+        {"scores": [0.74], "model_variant": "ml", "version": "v1.2", "ts": "2025-11-02T14:33:00Z"}
     """
     correlation_id = getattr(request.state, "correlation_id", "unknown")
 
@@ -355,25 +403,13 @@ async def predict(request: Request, feature_request: FeatureRequest):
             "prediction_requested",
             extra={
                 "correlation_id": correlation_id,
-                "features_count": len(feature_request.features),
+                "rows_count": len(predict_request.rows),
                 "model_version": MODEL_VERSION,
+                "model_variant": MODEL_VARIANT,
             },
         )
 
-        # Convert features to DataFrame (single row)
-        # Add required columns that prepare_features expects
-        features_dict = feature_request.features.copy()
-
-        # Ensure timestamp exists (required by prepare_features)
-        if "timestamp" not in features_dict:
-            features_dict["timestamp"] = datetime.utcnow().isoformat()
-
-        # Ensure product_id exists
-        if "product_id" not in features_dict:
-            features_dict["product_id"] = "BTC-USD"
-
         # Model expects these 10 features (from train.py prepare_features)
-        # Fill missing features with 0.0 (safe default for most features)
         expected_features = [
             "log_return_300s",
             "spread_mean_300s",
@@ -387,15 +423,136 @@ async def predict(request: Request, feature_request: FeatureRequest):
             "realized_volatility_60s",
         ]
 
-        # Ensure return_range_60s is computed if not provided directly
-        # Try to compute from return_max_60s and return_min_60s if available
-        if "return_range_60s" not in features_dict:
-            if "return_max_60s" in features_dict and "return_min_60s" in features_dict:
-                features_dict["return_range_60s"] = (
-                    features_dict["return_max_60s"] - features_dict["return_min_60s"]
-                )
+        # Map simple feature names to model features
+        feature_mapping = {
+            "ret_mean": "log_return_300s",
+            "ret_std": "realized_volatility_300s",
+            "n": "trade_intensity_300s",
+        }
+        
+        # Process each row
+        all_scores = []
+        start_time = time.time()
+        
+        for row in predict_request.rows:
+            # Convert row to dict
+            row_dict = row.model_dump(exclude_none=True)
+            features_dict = {}
+            
+            # Map simple names to full feature names
+            for simple_name, full_name in feature_mapping.items():
+                if simple_name in row_dict:
+                    features_dict[full_name] = float(row_dict[simple_name])
+            
+            # Copy any full feature names that are already present
+            for feat in expected_features:
+                if feat in row_dict:
+                    features_dict[feat] = float(row_dict[feat])
+            
+            # Ensure timestamp exists (required by prepare_features)
+            features_dict["timestamp"] = datetime.utcnow().isoformat()
+            features_dict["product_id"] = "BTC-USD"
+            
+            # Fill missing features with defaults
+            for feat in expected_features:
+                if feat not in features_dict:
+                    features_dict[feat] = 0.0
 
-        # Fill missing features with defaults (including return_range_60s if still missing)
+            features_df = pd.DataFrame([features_dict])
+
+            # Prepare features using same logic as training
+            prepared_features = prepare_features_for_inference(features_df)
+
+            # Make prediction
+            result = predictor.predict(prepared_features)
+            all_scores.append(round(result["probability"], 4))
+
+        inference_time = time.time() - start_time
+
+        # Determine model name for metrics
+        model_name = "baseline" if MODEL_VARIANT == "baseline" else MODEL_VERSION
+
+        # Record metrics
+        prediction_latency_seconds.observe(inference_time)
+        for score in all_scores:
+            prediction_label = "1" if score >= 0.5 else "0"
+            predictions_total.labels(
+                model_version=model_name, prediction=prediction_label
+            ).inc()
+
+        # Log successful prediction
+        logger.info(
+            "prediction_completed",
+            extra={
+                "correlation_id": correlation_id,
+                "rows_count": len(all_scores),
+                "scores": all_scores,
+                "inference_time_ms": inference_time * 1000,
+                "model_version": model_name,
+                "model_variant": MODEL_VARIANT,
+            },
+        )
+
+        return PredictResponse(
+            scores=all_scores,
+            model_variant=MODEL_VARIANT,
+            version=f"v1.2-{model_name}",
+            ts=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+    except Exception as e:
+        logger.error(
+            "prediction_failed",
+            extra={
+                "correlation_id": correlation_id,
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+
+
+@app.post("/predict/legacy", response_model=PredictionResponse)
+@limiter.limit("1000/minute")
+async def predict_legacy(request: Request, feature_request: FeatureRequest):
+    """
+    Legacy prediction endpoint (backward compatibility).
+    
+    Accepts feature dictionary and returns prediction, probability, and alert status.
+    """
+    correlation_id = getattr(request.state, "correlation_id", "unknown")
+
+    if predictor is None:
+        logger.error("model_not_loaded", extra={"correlation_id": correlation_id})
+        raise HTTPException(status_code=503, detail="Model not loaded")
+
+    try:
+        # Convert features to DataFrame (single row)
+        features_dict = feature_request.features.copy()
+
+        # Ensure timestamp exists (required by prepare_features)
+        if "timestamp" not in features_dict:
+            features_dict["timestamp"] = datetime.utcnow().isoformat()
+
+        # Ensure product_id exists
+        if "product_id" not in features_dict:
+            features_dict["product_id"] = "BTC-USD"
+
+        # Model expects these 10 features (from train.py prepare_features)
+        expected_features = [
+            "log_return_300s",
+            "spread_mean_300s",
+            "trade_intensity_300s",
+            "order_book_imbalance_300s",
+            "spread_mean_60s",
+            "order_book_imbalance_60s",
+            "price_velocity_300s",
+            "realized_volatility_300s",
+            "order_book_imbalance_30s",
+            "realized_volatility_60s",
+        ]
+
+        # Fill missing features with defaults
         for feat in expected_features:
             if feat not in features_dict:
                 features_dict[feat] = 0.0
@@ -403,7 +560,6 @@ async def predict(request: Request, feature_request: FeatureRequest):
         features_df = pd.DataFrame([features_dict])
 
         # Prepare features using same logic as training
-        # This ensures feature consistency
         prepared_features = prepare_features_for_inference(features_df)
 
         # Make prediction
@@ -420,33 +576,12 @@ async def predict(request: Request, feature_request: FeatureRequest):
             model_version=model_name, prediction=str(result["prediction"])
         ).inc()
 
-        # Log successful prediction
-        logger.info(
-            "prediction_completed",
-            extra={
-                "correlation_id": correlation_id,
-                "prediction": result["prediction"],
-                "probability": result["probability"],
-                "alert": result["alert"],
-                "inference_time_ms": result["inference_time_ms"],
-                "model_version": model_name,
-            },
-        )
-
         return PredictionResponse(
             prediction=result["prediction"],
             probability=result["probability"],
             alert=result["alert"],
             inference_time_ms=result["inference_time_ms"],
             model_version=f"{model_name} ({MODEL_VARIANT})",
-        )
-    except KeyError as e:
-        logger.error(
-            "missing_feature",
-            extra={"correlation_id": correlation_id, "missing_feature": str(e)},
-        )
-        raise HTTPException(
-            status_code=400, detail=f"Missing required feature: {str(e)}"
         )
     except Exception as e:
         logger.error(
@@ -465,12 +600,32 @@ async def predict(request: Request, feature_request: FeatureRequest):
 async def version():
     """
     Get API and model version information.
+    
+    Returns model name, git SHA, version, and model variant.
     """
+    # Get git SHA if available
+    git_sha = os.getenv("GIT_SHA", "dev")
+    if git_sha == "dev":
+        # Try to read from git if available
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                git_sha = result.stdout.strip()
+        except Exception:
+            pass
+    
     return VersionResponse(
-        version="1.0.0",
-        model=MODEL_VERSION,
+        model=f"{MODEL_VERSION}_v1",
+        sha=git_sha,
+        version="v1.2",
+        model_variant=MODEL_VARIANT,
         model_path=MODEL_PATH,
-        api_build_date=datetime.utcnow().strftime("%Y-%m-%d"),
     )
 
 
@@ -488,13 +643,19 @@ async def root():
     """Root endpoint with API information."""
     return {
         "name": "Crypto Volatility Detection API",
-        "version": "1.0.0",
+        "version": "1.2.0",
+        "model_variant": MODEL_VARIANT,
         "endpoints": {
-            "/health": "Health check",
-            "/predict": "Make predictions (POST)",
-            "/version": "API version info",
-            "/metrics": "Prometheus metrics",
+            "/health": "Health check (GET)",
+            "/predict": "Make predictions - Assignment API (POST)",
+            "/predict/legacy": "Legacy prediction endpoint (POST)",
+            "/version": "API version info (GET)",
+            "/metrics": "Prometheus metrics (GET)",
             "/docs": "API documentation (Swagger)",
+        },
+        "example_request": {
+            "url": "POST /predict",
+            "body": {"rows": [{"ret_mean": 0.05, "ret_std": 0.01, "n": 50}]},
         },
     }
 
