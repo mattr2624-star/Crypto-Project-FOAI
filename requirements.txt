@@ -51,4 +51,9 @@ ruff==0.1.9
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 prometheus-client==0.19.0
+slowapi>=0.1.8  # Rate limiting
+python-json-logger>=2.0.0  # Structured logging
+
+# System monitoring
+psutil>=5.9.0  # CPU/memory metrics for hardware monitoring
 

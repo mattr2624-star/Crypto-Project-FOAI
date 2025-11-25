@@ -80,6 +80,54 @@ model_loaded = Gauge(
     "model_loaded", "Whether the model is loaded (1) or not (0)", ["model_version"]
 )
 
+# Real-time feature metrics for dashboard visualization
+feature_value = Gauge(
+    "feature_value",
+    "Real-time feature values from predictions",
+    ["feature_name"],
+)
+
+prediction_score = Gauge(
+    "prediction_score",
+    "Most recent prediction score",
+    ["model_variant"],
+)
+
+avg_prediction_score = Gauge(
+    "avg_prediction_score",
+    "Rolling average prediction score (last 100 predictions)",
+    ["model_variant"],
+)
+
+# Store recent scores for rolling average
+_recent_scores: list = []
+_MAX_RECENT_SCORES = 100
+
+# System metrics for hardware monitoring
+system_cpu_percent = Gauge(
+    "system_cpu_percent",
+    "System CPU usage percentage",
+)
+
+system_memory_percent = Gauge(
+    "system_memory_percent",
+    "System memory usage percentage",
+)
+
+system_memory_available_gb = Gauge(
+    "system_memory_available_gb",
+    "System memory available in GB",
+)
+
+# Try to import psutil for system metrics
+try:
+    import psutil as _psutil
+
+    _HAS_PSUTIL = True
+except ImportError:
+    _HAS_PSUTIL = False
+    logger.warning("psutil not installed - system metrics disabled")
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Crypto Volatility Detection API",
@@ -225,6 +273,18 @@ class VersionResponse(BaseModel):
     version: str = Field(..., description="API version")
     model_variant: str = Field(..., description="Model variant (ml or baseline)")
     model_path: str = Field(..., description="Path to model file")
+
+
+def update_system_metrics():
+    """Update system hardware metrics for monitoring."""
+    if _HAS_PSUTIL:
+        try:
+            system_cpu_percent.set(_psutil.cpu_percent(interval=None))
+            mem = _psutil.virtual_memory()
+            system_memory_percent.set(mem.percent)
+            system_memory_available_gb.set(round(mem.available / (1024**3), 2))
+        except Exception as e:
+            logger.debug(f"Failed to update system metrics: {e}")
 
 
 def load_model():
@@ -496,6 +556,31 @@ async def predict(request: Request, predict_request: PredictRequest):
                 model_version=model_name, prediction=prediction_label
             ).inc()
 
+        # Record real-time feature metrics (from last row processed)
+        if features_dict:
+            for feat_name in expected_features:
+                if feat_name in features_dict:
+                    try:
+                        feature_value.labels(feature_name=feat_name).set(
+                            float(features_dict[feat_name])
+                        )
+                    except (ValueError, TypeError):
+                        pass
+
+        # Record prediction score metrics
+        if all_scores:
+            latest_score = all_scores[-1]
+            prediction_score.labels(model_variant=MODEL_VARIANT).set(latest_score)
+
+            # Update rolling average
+            global _recent_scores
+            _recent_scores.extend(all_scores)
+            if len(_recent_scores) > _MAX_RECENT_SCORES:
+                _recent_scores = _recent_scores[-_MAX_RECENT_SCORES:]
+            if _recent_scores:
+                avg_score = sum(_recent_scores) / len(_recent_scores)
+                avg_prediction_score.labels(model_variant=MODEL_VARIANT).set(avg_score)
+
         # Log successful prediction
         logger.info(
             "prediction_completed",
@@ -652,6 +737,8 @@ async def metrics():
     Prometheus metrics endpoint.
     Returns metrics in Prometheus format.
     """
+    # Update system metrics before returning
+    update_system_metrics()
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
