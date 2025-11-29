@@ -591,9 +591,21 @@ ls data/reports/*.html
 
 ### Troubleshooting
 
+#### Windows Fresh Install Issues
+
+| Issue | Symptom | Solution |
+|-------|---------|----------|
+| **Execution Policy** | "Running scripts is disabled" | Run: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` |
+| **WSL2 Not Installed** | Docker Desktop fails to start | Run: `wsl --install` then restart |
+| **Port Conflicts** | "Address already in use" | Stop conflicting services: `Get-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess` |
+| **Low Memory** | Docker containers crash | Docker Desktop → Settings → Resources → Increase RAM to 4GB+ |
+| **Long Paths** | Path length errors | Enable long paths: `git config --system core.longpaths true` |
+
+#### Common Runtime Issues
+
 **Kafka connection issues:**
 ```bash
-# Add hostname resolution
+# Add hostname resolution (Windows: edit C:\Windows\System32\drivers\etc\hosts)
 echo "127.0.0.1 kafka" | sudo tee -a /etc/hosts
 
 # Check Kafka running
@@ -615,6 +627,67 @@ df = pd.read_parquet('data/processed/features_consolidated.parquet')
 print(f'Samples: {len(df)} (need 500+)')
 print(f'Spike rate: {df[\"volatility_spike\"].mean():.2%} (target: 5-15%)')
 "
+```
+
+**Docker containers not starting:**
+```powershell
+# Check container logs
+docker compose -f docker/compose.yaml logs api
+docker compose -f docker/compose.yaml logs kafka
+
+# Restart all services
+docker compose -f docker/compose.yaml down
+docker compose -f docker/compose.yaml up -d
+```
+
+---
+
+## 🧪 End-to-End Testing
+
+### Quick Validation (Recommended)
+```bash
+# Run full 5-minute E2E pipeline test
+./scripts/run_e2e_test.sh
+```
+
+This script:
+1. ✅ Verifies Docker services are running
+2. ✅ Creates Kafka topics
+3. ✅ Starts live WebSocket data ingestion (5 min)
+4. ✅ Runs feature computation pipeline
+5. ✅ Makes predictions via API every 2 seconds
+6. ✅ Logs all output for verification
+
+### Manual E2E Test Steps
+
+```bash
+# 1. Start services
+cd docker && docker compose up -d && cd ..
+
+# 2. Verify API health
+curl http://localhost:8000/health
+# Expected: {"status":"healthy","model_loaded":true,...}
+
+# 3. Make a prediction
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"features":{"log_return_300s":0.001,"spread_mean_300s":0.5,"trade_intensity_300s":100,"order_book_imbalance_300s":0.6,"spread_mean_60s":0.3,"order_book_imbalance_60s":0.55,"price_velocity_300s":0.0001,"realized_volatility_300s":0.002,"order_book_imbalance_30s":0.52,"realized_volatility_60s":0.0015}}'
+# Expected: {"prediction":"normal","probability":0.xxx,...}
+
+# 4. Check Prometheus metrics
+curl http://localhost:8000/metrics | grep prediction_requests_total
+
+# 5. Check Grafana dashboard
+# Open http://localhost:3000 (admin/admin123)
+```
+
+### Replay Test (Offline Validation)
+```bash
+# Replay 10-minute sample data through Kafka
+python scripts/replay_to_kafka.py \
+  --input data/raw/ticks_10min_sample.ndjson \
+  --topic ticks.raw \
+  --speed 10  # 10x speed for faster testing
 ```
 
 ---

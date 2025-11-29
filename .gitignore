@@ -1,5 +1,6 @@
-# Environment
+# Environment (keep .env.example, ignore .env)
 .env
+!.env.example
 .venv/
 venv/
 
