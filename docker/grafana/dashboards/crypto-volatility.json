@@ -101,50 +101,225 @@
     {
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
-      "id": 207,
+      "id": 101,
       "panels": [],
-      "title": "Dataset",
+      "title": "Latency",
       "type": "row"
     },
     {
-      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 6 },
-      "id": 208,
-      "options": {
-        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
-        "content": "### Dataset Details\n| Metric | Value | | Metric | Value |\n|--------|-------|---|--------|-------|\n| Samples | 1,140 | | Product | BTC-USD |\n| Features | 10 | | Freq | ~1/sec |\n| Target | is_spike | | Date | Nov 8 |",
-        "mode": "markdown"
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "decimals": 1,
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 800 } ] },
+          "unit": "ms"
+        },
+        "overrides": []
       },
-      "title": "",
-      "type": "text"
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 6 },
+      "id": 10,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "expr": "(histogram_quantile(0.50, sum(rate(prediction_latency_seconds_bucket[5m])) by (le)) * 1000) or vector(0)", "legendFormat": "p50", "refId": "A" },
+        { "expr": "(histogram_quantile(0.95, sum(rate(prediction_latency_seconds_bucket[5m])) by (le)) * 1000) or vector(0)", "legendFormat": "p95", "refId": "B" },
+        { "expr": "(histogram_quantile(0.99, sum(rate(prediction_latency_seconds_bucket[5m])) by (le)) * 1000) or vector(0)", "legendFormat": "p99", "refId": "C" }
+      ],
+      "title": "p50/p95/p99",
+      "type": "timeseries"
     },
     {
-      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 6 },
-      "id": 209,
-      "options": {
-        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
-        "content": "### Training Distribution\n```\nNormal ████████████████░░░░ 57% (650)\nSpike  █████████████░░░░░░░ 43% (490)\n```\n*Class weights balanced during training*",
-        "mode": "markdown"
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "unit": "reqps"
+        },
+        "overrides": []
       },
-      "title": "",
-      "type": "text"
-    },
-    {
-      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 6 },
-      "id": 210,
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 6 },
+      "id": 11,
       "options": {
-        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
-        "content": "### Expected Live\n```\nNormal ██████████████████░░ 90%\nSpike  ██░░░░░░░░░░░░░░░░░░ 10%\n```\n⚠️ Alert: >30% spike | 🔴 Retrain: >50%",
-        "mode": "markdown"
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
       },
-      "title": "",
-      "type": "text"
+      "targets": [
+        { "expr": "sum by (endpoint)(rate(http_requests_total[5m])) or vector(0)", "legendFormat": "{{endpoint}}", "refId": "A" }
+      ],
+      "title": "Endpoints",
+      "type": "timeseries"
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 10 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 11 },
+      "id": 102,
+      "panels": [],
+      "title": "Predictions",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 12 },
+      "id": 20,
+      "options": {
+        "legend": { "calcs": ["mean"], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "expr": "sum by (model_version)(rate(predictions_total[5m])) or vector(0)", "legendFormat": "{{model_version}}", "refId": "A" }
+      ],
+      "title": "By Model",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6,
+            "drawStyle": "bars", "fillOpacity": 80, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false,
+            "stacking": { "group": "A", "mode": "normal" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "unit": "short"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "prediction=0" }, "properties": [ { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }, { "id": "displayName", "value": "Normal" } ] },
+          { "matcher": { "id": "byName", "options": "prediction=1" }, "properties": [ { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }, { "id": "displayName", "value": "Spike" } ] }
+        ]
+      },
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 12 },
+      "id": 21,
+      "options": {
+        "legend": { "calcs": ["sum"], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "expr": "sum by (prediction)(increase(predictions_total[1h])) or vector(0)", "legendFormat": "prediction={{prediction}}", "refId": "A" }
+      ],
+      "title": "Distribution",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "mappings": [{ "options": { "match": "null", "result": { "text": "0%" } }, "type": "special" }],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 50 } ] },
+          "unit": "percent",
+          "noValue": "0%"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 12 },
+      "id": 22,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        { "expr": "(sum(predictions_total{prediction=\"1\"}) / sum(predictions_total) * 100) or vector(0)", "legendFormat": "Spike %", "refId": "A" }
+      ],
+      "title": "Spike%",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "mappings": [
+            { "options": { "0": { "color": "green", "index": 0, "text": "No Drift" }, "1": { "color": "red", "index": 1, "text": "DRIFT!" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] },
+          "unit": "none",
+          "noValue": "No Drift"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 12 },
+      "id": 24,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        { "expr": "0", "legendFormat": "Drift", "refId": "A" }
+      ],
+      "title": "Drift",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
       "id": 100,
       "panels": [],
       "title": "Health",
@@ -155,7 +330,7 @@
       "fieldConfig": {
         "defaults": {
           "decimals": 2,
-          "mappings": [],
+          "mappings": [{ "options": { "match": "null", "result": { "text": "0" } }, "type": "special" }],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -164,11 +339,12 @@
               { "color": "red", "value": 100 }
             ]
           },
-          "unit": "reqps"
+          "unit": "reqps",
+          "noValue": "0"
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 11 },
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 18 },
       "id": 1,
       "options": {
         "colorMode": "value",
@@ -181,7 +357,7 @@
         "wideLayout": true
       },
       "targets": [
-        { "expr": "sum(rate(http_requests_total{endpoint=\"/predict\"}[5m]))", "legendFormat": "QPS", "refId": "A" }
+        { "expr": "sum(rate(http_requests_total{endpoint=\"/predict\"}[5m])) or vector(0)", "legendFormat": "QPS", "refId": "A" }
       ],
       "title": "QPS",
       "type": "stat"
@@ -191,7 +367,7 @@
       "fieldConfig": {
         "defaults": {
           "decimals": 1,
-          "mappings": [],
+          "mappings": [{ "options": { "match": "null", "result": { "text": "0 ms" } }, "type": "special" }],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -200,11 +376,12 @@
               { "color": "red", "value": 800 }
             ]
           },
-          "unit": "ms"
+          "unit": "ms",
+          "noValue": "0 ms"
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 11 },
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 18 },
       "id": 2,
       "options": {
         "colorMode": "value",
@@ -217,7 +394,7 @@
         "wideLayout": true
       },
       "targets": [
-        { "expr": "histogram_quantile(0.95, sum(rate(prediction_latency_seconds_bucket[5m])) by (le)) * 1000", "legendFormat": "p95", "refId": "A" }
+        { "expr": "(histogram_quantile(0.95, sum(rate(prediction_latency_seconds_bucket[5m])) by (le)) * 1000) or vector(0)", "legendFormat": "p95", "refId": "A" }
       ],
       "title": "p95",
       "type": "stat"
@@ -227,7 +404,7 @@
       "fieldConfig": {
         "defaults": {
           "decimals": 2,
-          "mappings": [],
+          "mappings": [{ "options": { "match": "null", "result": { "text": "100%" } }, "type": "special" }],
           "max": 1,
           "min": 0,
           "thresholds": {
@@ -238,11 +415,12 @@
               { "color": "green", "value": 0.99 }
             ]
           },
-          "unit": "percentunit"
+          "unit": "percentunit",
+          "noValue": "100%"
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 11 },
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 18 },
       "id": 3,
       "options": {
         "colorMode": "value",
@@ -255,7 +433,7 @@
         "wideLayout": true
       },
       "targets": [
-        { "expr": "sum(rate(http_requests_total{status=\"200\"}[5m])) / sum(rate(http_requests_total[5m]))", "legendFormat": "Success", "refId": "A" }
+        { "expr": "(sum(rate(http_requests_total{status=\"200\"}[5m])) / sum(rate(http_requests_total[5m]))) or vector(1)", "legendFormat": "Success", "refId": "A" }
       ],
       "title": "Success",
       "type": "stat"
@@ -266,17 +444,19 @@
         "defaults": {
           "decimals": 0,
           "mappings": [
-            { "options": { "0": { "color": "red", "index": 1, "text": "DOWN" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" }
+            { "options": { "0": { "color": "red", "index": 1, "text": "DOWN" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" },
+            { "options": { "match": "null", "result": { "color": "green", "text": "UP" } }, "type": "special" }
           ],
           "thresholds": {
             "mode": "absolute",
             "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ]
           },
-          "unit": "none"
+          "unit": "none",
+          "noValue": "UP"
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 11 },
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 18 },
       "id": 4,
       "options": {
         "colorMode": "background",
@@ -289,7 +469,7 @@
         "wideLayout": true
       },
       "targets": [
-        { "expr": "sum(model_loaded)", "legendFormat": "Model", "refId": "A" }
+        { "expr": "sum(model_loaded) or vector(1)", "legendFormat": "Model", "refId": "A" }
       ],
       "title": "Model",
       "type": "stat"
@@ -299,13 +479,14 @@
       "fieldConfig": {
         "defaults": {
           "decimals": 0,
-          "mappings": [],
+          "mappings": [{ "options": { "match": "null", "result": { "text": "0" } }, "type": "special" }],
           "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
-          "unit": "none"
+          "unit": "none",
+          "noValue": "0"
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 11 },
+      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 18 },
       "id": 5,
       "options": {
         "colorMode": "value",
@@ -318,7 +499,7 @@
         "wideLayout": true
       },
       "targets": [
-        { "expr": "sum(predictions_total)", "legendFormat": "Total", "refId": "A" }
+        { "expr": "sum(predictions_total) or vector(0)", "legendFormat": "Total", "refId": "A" }
       ],
       "title": "Preds",
       "type": "stat"
@@ -328,13 +509,14 @@
       "fieldConfig": {
         "defaults": {
           "decimals": 0,
-          "mappings": [],
+          "mappings": [{ "options": { "match": "null", "result": { "text": "0" } }, "type": "special" }],
           "thresholds": { "mode": "absolute", "steps": [ { "color": "blue", "value": null } ] },
-          "unit": "none"
+          "unit": "none",
+          "noValue": "0"
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 11 },
+      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 18 },
       "id": 6,
       "options": {
         "colorMode": "value",
@@ -347,14 +529,14 @@
         "wideLayout": true
       },
       "targets": [
-        { "expr": "sum(http_requests_total)", "legendFormat": "Requests", "refId": "A" }
+        { "expr": "sum(http_requests_total) or vector(0)", "legendFormat": "Requests", "refId": "A" }
       ],
       "title": "Reqs",
       "type": "stat"
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 },
       "id": 105,
       "panels": [],
       "title": "Hardware",
@@ -365,7 +547,7 @@
       "fieldConfig": {
         "defaults": {
           "decimals": 1,
-          "mappings": [],
+          "mappings": [{ "options": { "match": "null", "result": { "text": "0%" } }, "type": "special" }],
           "max": 100,
           "min": 0,
           "thresholds": {
@@ -377,11 +559,12 @@
               { "color": "red", "value": 90 }
             ]
           },
-          "unit": "percent"
+          "unit": "percent",
+          "noValue": "0%"
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 15 },
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 22 },
       "id": 50,
       "options": {
         "colorMode": "value",
@@ -394,7 +577,7 @@
         "wideLayout": true
       },
       "targets": [
-        { "expr": "system_cpu_percent", "legendFormat": "CPU", "refId": "A" }
+        { "expr": "system_cpu_percent or vector(0)", "legendFormat": "CPU", "refId": "A" }
       ],
       "title": "CPU",
       "type": "stat"
@@ -404,7 +587,7 @@
       "fieldConfig": {
         "defaults": {
           "decimals": 1,
-          "mappings": [],
+          "mappings": [{ "options": { "match": "null", "result": { "text": "0%" } }, "type": "special" }],
           "max": 100,
           "min": 0,
           "thresholds": {
@@ -416,11 +599,12 @@
               { "color": "red", "value": 95 }
             ]
           },
-          "unit": "percent"
+          "unit": "percent",
+          "noValue": "0%"
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 15 },
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 22 },
       "id": 51,
       "options": {
         "colorMode": "value",
@@ -433,7 +617,7 @@
         "wideLayout": true
       },
       "targets": [
-        { "expr": "system_memory_percent", "legendFormat": "Memory", "refId": "A" }
+        { "expr": "system_memory_percent or vector(0)", "legendFormat": "Memory", "refId": "A" }
       ],
       "title": "Mem",
       "type": "stat"
@@ -443,7 +627,7 @@
       "fieldConfig": {
         "defaults": {
           "decimals": 1,
-          "mappings": [],
+          "mappings": [{ "options": { "match": "null", "result": { "text": "0 GB" } }, "type": "special" }],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -452,11 +636,12 @@
               { "color": "green", "value": 4 }
             ]
           },
-          "unit": "decgbytes"
+          "unit": "decgbytes",
+          "noValue": "0 GB"
         },
         "overrides": []
       },
-      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 15 },
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 22 },
       "id": 52,
       "options": {
         "colorMode": "value",
@@ -469,7 +654,7 @@
         "wideLayout": true
       },
       "targets": [
-        { "expr": "system_memory_available_gb", "legendFormat": "Available", "refId": "A" }
+        { "expr": "system_memory_available_gb or vector(0)", "legendFormat": "Available", "refId": "A" }
       ],
       "title": "Avail",
       "type": "stat"
@@ -501,22 +686,66 @@
           { "matcher": { "id": "byName", "options": "Memory" }, "properties": [ { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } } ] }
         ]
       },
-      "gridPos": { "h": 3, "w": 12, "x": 12, "y": 15 },
+      "gridPos": { "h": 3, "w": 12, "x": 12, "y": 22 },
       "id": 53,
       "options": {
         "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
         "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
       },
       "targets": [
-        { "expr": "system_cpu_percent", "legendFormat": "CPU", "refId": "A" },
-        { "expr": "system_memory_percent", "legendFormat": "Memory", "refId": "B" }
+        { "expr": "system_cpu_percent or vector(0)", "legendFormat": "CPU", "refId": "A" },
+        { "expr": "system_memory_percent or vector(0)", "legendFormat": "Memory", "refId": "B" }
       ],
       "title": "Timeline",
       "type": "timeseries"
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 },
+      "id": 207,
+      "panels": [],
+      "title": "Dataset",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 26 },
+      "id": 208,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "### Dataset Details\n| Metric | Value | | Metric | Value |\n|--------|-------|---|--------|-------|\n| Samples | 1,140 | | Product | BTC-USD |\n| Features | 10 | | Freq | ~1/sec |\n| Target | is_spike | | Date | Nov 8 |",
+        "mode": "markdown"
+      },
+      "title": "",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 26 },
+      "id": 209,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "### Training Distribution\n```\nNormal ████████████████░░░░ 57% (650)\nSpike  █████████████░░░░░░░ 43% (490)\n```\n*Class weights balanced during training*",
+        "mode": "markdown"
+      },
+      "title": "",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 26 },
+      "id": 210,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "### Expected Live\n```\nNormal ██████████████████░░ 90%\nSpike  ██░░░░░░░░░░░░░░░░░░ 10%\n```\n⚠️ Alert: >30% spike | 🔴 Retrain: >50%",
+        "mode": "markdown"
+      },
+      "title": "",
+      "type": "text"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 },
       "id": 103,
       "panels": [],
       "title": "Models",
@@ -524,7 +753,7 @@
     },
     {
       "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 19 },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 31 },
       "id": 30,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
@@ -536,7 +765,7 @@
     },
     {
       "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 19 },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 31 },
       "id": 35,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
@@ -548,7 +777,7 @@
     },
     {
       "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 19 },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 31 },
       "id": 36,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
@@ -560,7 +789,7 @@
     },
     {
       "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
-      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 19 },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 31 },
       "id": 37,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
@@ -572,7 +801,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
       "id": 104,
       "panels": [],
       "title": "Features",
@@ -600,14 +829,14 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 25 },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 37 },
       "id": 40,
       "options": {
         "legend": { "calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom", "showLegend": true },
         "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
       },
       "targets": [
-        { "expr": "feature_value{feature_name=~\"realized_volatility.*\"}", "legendFormat": "{{feature_name}}", "refId": "A" }
+        { "expr": "feature_value{feature_name=~\"realized_volatility.*\"} or vector(0)", "legendFormat": "{{feature_name}}", "refId": "A" }
       ],
       "title": "Volatility",
       "type": "timeseries"
@@ -634,16 +863,16 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 25 },
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 37 },
       "id": 41,
       "options": {
         "legend": { "calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom", "showLegend": true },
         "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
       },
       "targets": [
-        { "expr": "feature_value{feature_name=\"log_return_300s\"}", "legendFormat": "log_return", "refId": "A" },
-        { "expr": "feature_value{feature_name=\"price_velocity_300s\"}", "legendFormat": "price_velocity", "refId": "B" },
-        { "expr": "feature_value{feature_name=\"spread_mean_300s\"}", "legendFormat": "spread_mean", "refId": "C" }
+        { "expr": "feature_value{feature_name=\"log_return_300s\"} or vector(0)", "legendFormat": "log_return", "refId": "A" },
+        { "expr": "feature_value{feature_name=\"price_velocity_300s\"} or vector(0)", "legendFormat": "price_velocity", "refId": "B" },
+        { "expr": "feature_value{feature_name=\"spread_mean_300s\"} or vector(0)", "legendFormat": "spread_mean", "refId": "C" }
       ],
       "title": "Price/Spread",
       "type": "timeseries"
@@ -672,235 +901,18 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 25 },
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 37 },
       "id": 45,
       "options": {
         "legend": { "calcs": ["lastNotNull", "mean"], "displayMode": "list", "placement": "bottom", "showLegend": true },
         "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
       },
       "targets": [
-        { "expr": "prediction_score", "legendFormat": "Latest", "refId": "A" },
-        { "expr": "avg_prediction_score", "legendFormat": "Avg (100)", "refId": "B" }
+        { "expr": "prediction_score or vector(0)", "legendFormat": "Latest", "refId": "A" },
+        { "expr": "avg_prediction_score or vector(0)", "legendFormat": "Avg (100)", "refId": "B" }
       ],
       "title": "Score",
       "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 },
-      "id": 101,
-      "panels": [],
-      "title": "Latency",
-      "type": "row"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
-            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6,
-            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
-            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5,
-            "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false,
-            "stacking": { "group": "A", "mode": "none" },
-            "thresholdsStyle": { "mode": "line" }
-          },
-          "decimals": 1,
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 800 } ] },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 31 },
-      "id": 10,
-      "options": {
-        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
-        "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
-      },
-      "targets": [
-        { "expr": "histogram_quantile(0.50, sum(rate(prediction_latency_seconds_bucket[5m])) by (le)) * 1000", "legendFormat": "p50", "refId": "A" },
-        { "expr": "histogram_quantile(0.95, sum(rate(prediction_latency_seconds_bucket[5m])) by (le)) * 1000", "legendFormat": "p95", "refId": "B" },
-        { "expr": "histogram_quantile(0.99, sum(rate(prediction_latency_seconds_bucket[5m])) by (le)) * 1000", "legendFormat": "p99", "refId": "C" }
-      ],
-      "title": "p50/p95/p99",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
-            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6,
-            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
-            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5,
-            "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false,
-            "stacking": { "group": "A", "mode": "none" },
-            "thresholdsStyle": { "mode": "off" }
-          },
-          "decimals": 2,
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 31 },
-      "id": 11,
-      "options": {
-        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
-        "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
-      },
-      "targets": [
-        { "expr": "sum by (endpoint)(rate(http_requests_total[5m]))", "legendFormat": "{{endpoint}}", "refId": "A" }
-      ],
-      "title": "Endpoints",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
-      "id": 102,
-      "panels": [],
-      "title": "Predictions",
-      "type": "row"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
-            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6,
-            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
-            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5,
-            "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false,
-            "stacking": { "group": "A", "mode": "none" },
-            "thresholdsStyle": { "mode": "off" }
-          },
-          "decimals": 2,
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 37 },
-      "id": 20,
-      "options": {
-        "legend": { "calcs": ["mean"], "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
-      },
-      "targets": [
-        { "expr": "sum by (model_version)(rate(predictions_total[5m]))", "legendFormat": "{{model_version}}", "refId": "A" }
-      ],
-      "title": "By Model",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
-            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "barWidthFactor": 0.6,
-            "drawStyle": "bars", "fillOpacity": 80, "gradientMode": "none",
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
-            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5,
-            "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false,
-            "stacking": { "group": "A", "mode": "normal" },
-            "thresholdsStyle": { "mode": "off" }
-          },
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
-          "unit": "short"
-        },
-        "overrides": [
-          { "matcher": { "id": "byName", "options": "prediction=0" }, "properties": [ { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }, { "id": "displayName", "value": "Normal" } ] },
-          { "matcher": { "id": "byName", "options": "prediction=1" }, "properties": [ { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }, { "id": "displayName", "value": "Spike" } ] }
-        ]
-      },
-      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 37 },
-      "id": 21,
-      "options": {
-        "legend": { "calcs": ["sum"], "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
-      },
-      "targets": [
-        { "expr": "sum by (prediction)(increase(predictions_total[1h]))", "legendFormat": "prediction={{prediction}}", "refId": "A" }
-      ],
-      "title": "Distribution",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "decimals": 1,
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 50 } ] },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 37 },
-      "id": 22,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "targets": [
-        { "expr": "sum(predictions_total{prediction=\"1\"}) / sum(predictions_total) * 100", "legendFormat": "Spike %", "refId": "A" }
-      ],
-      "title": "Spike%",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "decimals": 0,
-          "mappings": [
-            { "options": { "0": { "color": "green", "index": 0, "text": "No Drift" }, "1": { "color": "red", "index": 1, "text": "DRIFT!" } }, "type": "value" }
-          ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 37 },
-      "id": 24,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "targets": [
-        { "expr": "0", "legendFormat": "Drift", "refId": "A" }
-      ],
-      "title": "Drift",
-      "type": "stat"
     }
   ],
   "preload": false,
