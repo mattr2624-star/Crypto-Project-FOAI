@@ -1,0 +1,20 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Shell scripts must have LF line endings for Linux/Mac
+*.sh text eol=lf
+
+# Batch files should have CRLF for Windows
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Keep binary files as-is
+*.pkl binary
+*.parquet binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.pptx binary
+

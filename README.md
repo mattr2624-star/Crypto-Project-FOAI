@@ -9,36 +9,37 @@ Real-time cryptocurrency volatility detection service using Coinbase WebSocket A
 
 ---
 
-## 🚀 Windows One-Click Setup
+## 🚀 Quick Start (All Platforms)
 
-**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) and [Git](https://git-scm.com/download/win) installed.
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) and [Git](https://git-scm.com/) installed.
 
-### Option 1: PowerShell (Recommended)
-```powershell
-# Run this in PowerShell as Administrator
-Set-ExecutionPolicy Bypass -Scope Process -Force
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/mattr2624-star/Crypto-Project-FOAI/master/setup-windows.ps1" -OutFile "$env:TEMP\setup.ps1"
-& "$env:TEMP\setup.ps1"
+### Linux / macOS
+```bash
+git clone https://github.com/mattr2624-star/Crypto-Project-FOAI.git
+cd Crypto-Project-FOAI
+chmod +x setup.sh
+./setup.sh
 ```
 
-### Option 2: Manual Clone & Run
+### Windows (PowerShell)
 ```powershell
 git clone https://github.com/mattr2624-star/Crypto-Project-FOAI.git
 cd Crypto-Project-FOAI
 .\setup-windows.ps1
 ```
 
-### Option 3: Double-Click
-1. Download and extract the repository
-2. Double-click `setup.bat`
+### Windows (Alternative)
+Double-click `setup.bat` after cloning.
 
 **After setup, access:**
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| API Docs | http://localhost:8000/docs | - |
-| Grafana | http://localhost:3000 | admin / admin123 |
-| Prometheus | http://localhost:9090 | - |
-| MLflow | http://localhost:5001 | - |
+| Service | URL | Notes |
+|---------|-----|-------|
+| **Grafana Dashboard** | http://localhost:3000 | No login required (anonymous access) |
+| API Docs | http://localhost:8000/docs | Swagger UI |
+| Prometheus | http://localhost:9090 | Metrics |
+| MLflow | http://localhost:5001 | Experiment tracking |
+
+> 💡 **The Grafana dashboard loads automatically without login!** Admin access (admin/admin123) only needed for editing.
 
 ---
 
