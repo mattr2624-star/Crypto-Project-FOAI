@@ -19,7 +19,6 @@ import sys
 import time
 import random
 from datetime import datetime
-from pathlib import Path
 
 import requests
 
