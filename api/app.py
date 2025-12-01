@@ -99,6 +99,12 @@ avg_prediction_score = Gauge(
     ["model_variant"],
 )
 
+# Timestamp of last prediction for freshness tracking
+last_prediction_timestamp = Gauge(
+    "last_prediction_timestamp",
+    "Unix timestamp of the last prediction made",
+)
+
 # Store recent scores for rolling average
 _recent_scores: list = []
 _MAX_RECENT_SCORES = 100
@@ -550,6 +556,10 @@ async def predict(request: Request, predict_request: PredictRequest):
 
         # Record metrics
         prediction_latency_seconds.observe(inference_time)
+
+        # Update last prediction timestamp for freshness tracking
+        last_prediction_timestamp.set(time.time())
+
         for score in all_scores:
             prediction_label = "1" if score >= 0.5 else "0"
             predictions_total.labels(

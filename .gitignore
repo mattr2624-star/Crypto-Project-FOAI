@@ -7,6 +7,11 @@ venv/
 # Data
 data/raw/*.ndjson
 data/processed/*.parquet
+!data/raw/ticks_10min_sample.ndjson  # Keep sample for Week 4 requirement
+
+# Logs
+logs/*.log
+logs/pipeline_pids.txt
 
 # MLflow
 mlruns/
