@@ -3,6 +3,7 @@
 
 # Shell scripts must have LF line endings for Linux/Mac
 *.sh text eol=lf
+scripts/*.sh text eol=lf
 
 # Batch files should have CRLF for Windows
 *.bat text eol=crlf

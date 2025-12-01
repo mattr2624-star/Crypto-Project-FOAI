@@ -13,25 +13,36 @@ Real-time cryptocurrency volatility detection service using Coinbase WebSocket A
 
 **Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) and [Git](https://git-scm.com/) installed.
 
-### Linux / macOS
+### Option 1: One-Command Pipeline Start (Recommended)
+
+**Linux / macOS:**
 ```bash
 git clone https://github.com/mattr2624-star/Crypto-Project-FOAI.git
 cd Crypto-Project-FOAI
-chmod +x setup.sh
-./setup.sh
+chmod +x scripts/start_pipeline.sh
+./scripts/start_pipeline.sh
 ```
 
-### Windows (PowerShell)
+**Windows (PowerShell):**
 ```powershell
 git clone https://github.com/mattr2624-star/Crypto-Project-FOAI.git
 cd Crypto-Project-FOAI
-.\setup-windows.ps1
+.\scripts\start_pipeline.ps1
 ```
 
-### Windows (Alternative)
-Double-click `setup.bat` after cloning.
+This will:
+1. ✅ Start all Docker services
+2. ✅ Wait for API to be ready
+3. ✅ Generate demo predictions to populate dashboard
+4. ✅ Open Grafana dashboard in browser
 
-**After setup, access:**
+### Option 2: Full Setup Script
+
+**Linux / macOS:** `./setup.sh`  
+**Windows:** `.\setup-windows.ps1` or double-click `setup.bat`
+
+### After Setup
+
 | Service | URL | Notes |
 |---------|-----|-------|
 | **Grafana Dashboard** | http://localhost:3000 | No login required (anonymous access) |
@@ -40,6 +51,12 @@ Double-click `setup.bat` after cloning.
 | MLflow | http://localhost:5001 | Experiment tracking |
 
 > 💡 **The Grafana dashboard loads automatically without login!** Admin access (admin/admin123) only needed for editing.
+
+### Generate More Predictions
+```bash
+# Run prediction consumer to populate dashboard with metrics
+python scripts/prediction_consumer.py --mode demo --interval 2
+```
 
 ---
 
